@@ -1,0 +1,21 @@
+# 程序生成的结果
+raman_output/
+raman_preprocessed/
+raman_peaks/
+outputs/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# 本地环境和编辑器配置
+.venv/
+.env
+.vscode/
+
+# 本地原始数据
+data/raw/
+data/processed/
