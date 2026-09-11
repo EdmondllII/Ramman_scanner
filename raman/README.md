@@ -6,3 +6,7 @@
 - `io/`：提供 TXT 和 TIFF 数据读取方法。
 - `baseline/`：提供基线矫正方法。
 - `fitting/`：提供峰检测和线形拟合方法。
+- `reconstruction/`：提供与拟合参数一致的 Gaussian、Lorentzian 单谱重建方法。
+
+扫描区域遍历、结果文件和绘图由项目根目录的 `work/` 包负责；`raman/`
+中的方法只接收一条光谱及其坐标，不处理空间循环。
