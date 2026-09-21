@@ -5,6 +5,13 @@
 """
 
 from .gaussian import reconstruct as reconstruct_gaussian
+from .lopc import reconstruct as reconstruct_lopc
 from .lorentzian import reconstruct as reconstruct_lorentzian
+from .voigt import reconstruct as reconstruct_voigt
 
-__all__ = ["reconstruct_gaussian", "reconstruct_lorentzian"]
+__all__ = [
+    "reconstruct_gaussian",
+    "reconstruct_lopc",
+    "reconstruct_lorentzian",
+    "reconstruct_voigt",
+]
