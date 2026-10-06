@@ -48,6 +48,7 @@ def fit(
             center=float(center),
             sigma=initial_sigma,
         )
+        component_parameters[f"{prefix}amplitude"].set(min=0.0)  # 非负面积保证峰高非负
         component_parameters[f"{prefix}center"].set(vary=vary_centers)
         component_parameters[f"{prefix}sigma"].set(min=1e-12)
         if gamma is not None:

@@ -41,6 +41,7 @@ def fit(
             center=float(center),  # 峰中心从自动寻峰结果开始迭代
             sigma=initial_sigma,  # lmfit Lorentzian 中 sigma 等于半高半宽
         )
+        component_parameters[f"{prefix}amplitude"].set(min=0.0)  # 正宽度下，非负面积保证峰高非负
         component_parameters[f"{prefix}center"].set(vary=vary_centers)  # True 时允许中心偏离寻峰位置
         component_parameters[f"{prefix}sigma"].set(min=1e-12)  # 只限制宽度为正，目前没有上限
         if parameters is None:

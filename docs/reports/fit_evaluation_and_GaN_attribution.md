@@ -102,7 +102,7 @@ GaN LED 的 Raman 信号可能同时来自 p-GaN、量子阱、n-GaN、AlGaN、�
 
 ## 6. 参考文献与适用边界
 
-项目已有的专题文档 [`docs/GaN_A1LO_载流子效应与线形模型.md`](../../docs/GaN_A1LO_载流子效应与线形模型.md) 汇总了以下原始研究：
+项目已有的专题文档 [`docs/models/GaN_A1LO_载流子效应与线形模型.md`](../models/GaN_A1LO_载流子效应与线形模型.md) 汇总了以下原始研究：
 
 - Davydov et al., *Phonon dispersion and Raman scattering in hexagonal GaN and AlN*, Phys. Rev. B 58, 12899 (1998), [DOI: 10.1103/PhysRevB.58.12899](https://doi.org/10.1103/PhysRevB.58.12899)。该工作可作为纤锌矿 GaN 基本声子模式和频率范围的参考。
 - Kozawa et al., *Raman scattering from LO phonon-plasmon coupled modes in gallium nitride*, J. Appl. Phys. 75, 1098 (1994), [DOI: 10.1063/1.356492](https://doi.org/10.1063/1.356492)。

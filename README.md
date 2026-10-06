@@ -11,6 +11,8 @@ python work/fitting/fit_scan.py
 
 上面两条命令分别生成背景和逐点峰拟合参数。重建、拟合效果评估、光谱加减和绘图也都是独立脚本；完整的文件职责、参数说明和可复制命令见 [`work/README.md`](work/README.md)，各子目录下的 README 还提供对应步骤的细节。
 
+项目设计、工作流、数据约定、数学与物理模型、原理调研和阶段报告见 [`docs/README.md`](docs/README.md)，从该入口可以按主题继续阅读。
+
 ## 文件说明
 
 - `work/baseline/baseline_scan.py`：逐空间点估计背景，输出 `background.tif`（[说明](work/baseline/README.md)）。

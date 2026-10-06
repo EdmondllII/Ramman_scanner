@@ -79,20 +79,11 @@ def _inverse_softplus(value: float) -> float:
     return float(np.log(np.expm1(value)))
 
 
-def _inverse_sigmoid(value: float, lower: float, upper: float) -> float:
-    fraction = (float(value) - lower) / (upper - lower)
-    fraction = min(max(fraction, 1.0e-6), 1.0 - 1.0e-6)
-    return float(np.log(fraction / (1.0 - fraction)))
-
-
-def _physical_values(raw, omega_l_bounds, positive_scales):
-    lower, upper = omega_l_bounds
+def _physical_values(raw, positive_scales):
+    """正值参数无上限；LO 频率不再绑定到拟合数据窗口。"""
     return {
-        "amplitude": positive_scales["amplitude"] * torch.nn.functional.softplus(raw[0]),
-        "omega_p": positive_scales["omega_p"] * torch.nn.functional.softplus(raw[1]),
-        "gamma_p": positive_scales["gamma_p"] * torch.nn.functional.softplus(raw[2]),
-        "gamma_ph": positive_scales["gamma_ph"] * torch.nn.functional.softplus(raw[3]),
-        "omega_l": lower + (upper - lower) * torch.sigmoid(raw[4]),
+        name: positive_scales[name] * torch.nn.functional.softplus(raw[index])
+        for index, name in enumerate(positive_scales)
     }
 
 
@@ -103,7 +94,6 @@ def adam_prefit_lopc(
     initial_values: Mapping[str, float],
     omega_t: float,
     epsilon_inf: float,
-    omega_l_bounds: tuple[float, float] = (720.0, 750.0),
     learning_rate: float = 0.02,
     max_steps: int = 1000,
     patience: int = 150,
@@ -115,26 +105,20 @@ def adam_prefit_lopc(
     valid = np.isfinite(x_values) & np.isfinite(y_values)
     if valid.sum() < 3:
         raise ValueError("Adam LOPC prefit requires at least three finite points")
-    lower, upper = map(float, omega_l_bounds)
-    if not lower < upper:
-        raise ValueError("omega_l_bounds must be an increasing pair")
     if learning_rate <= 0.0 or max_steps < 1 or patience < 1:
         raise ValueError("Adam learning_rate, max_steps and patience must be positive")
 
     x_tensor = torch.as_tensor(x_values[valid], dtype=torch.float64)
     y_tensor = torch.as_tensor(y_values[valid], dtype=torch.float64)
-    positive_names = ("amplitude", "omega_p", "gamma_p", "gamma_ph")
+    positive_names = ("amplitude", "omega_p", "gamma_p", "gamma_ph", "omega_l")
     positive_scales = {
         name: max(abs(float(initial_values[name])), 1.0e-6)
         for name in positive_names
     }
     raw = torch.tensor(
         [
-            *(
-                _inverse_softplus(initial_values[name] / positive_scales[name])
-                for name in positive_names
-            ),
-            _inverse_sigmoid(initial_values["omega_l"], lower, upper),
+            _inverse_softplus(initial_values[name] / positive_scales[name])
+            for name in positive_names
         ],
         dtype=torch.float64,
         requires_grad=True,
@@ -148,7 +132,7 @@ def adam_prefit_lopc(
 
     for step in range(int(max_steps)):
         optimizer.zero_grad(set_to_none=True)
-        values = _physical_values(raw, (lower, upper), positive_scales)
+        values = _physical_values(raw, positive_scales)
         predicted = lopc_torch(
             x_tensor,
             omega_t=omega_t,
@@ -174,7 +158,7 @@ def adam_prefit_lopc(
     if not np.isfinite(best_loss):
         raise RuntimeError("Adam LOPC prefit did not produce a finite loss")
     with torch.no_grad():
-        best_values = _physical_values(best_raw, (lower, upper), positive_scales)
+        best_values = _physical_values(best_raw, positive_scales)
     result = {name: float(value.cpu()) for name, value in best_values.items()}
     result["adam_loss"] = best_loss
     result["adam_steps"] = float(step + 1)

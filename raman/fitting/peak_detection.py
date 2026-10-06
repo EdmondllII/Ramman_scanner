@@ -23,7 +23,7 @@ def detect_peaks(
     prominence: float | None = None,
     distance: int = 3,
 ) -> np.ndarray:
-    """使用 SciPy 局部极大值检测器返回峰位置。"""
+    """使用 SciPy 返回高度非负的局部极大值位置，不截断输入强度。"""
     from scipy.signal import find_peaks  # 这里只做离散局部极大值检测，不执行曲线拟合
 
     x_values = np.asarray(x, dtype=float)
@@ -38,5 +38,5 @@ def detect_peaks(
     if prominence is None:  # 调用者未给绝对阈值时才启用动态阈值
         dynamic_range = float(np.percentile(y_values, 99) - np.percentile(y_values, 1))  # 用分位差降低极端点影响
         prominence = 0.025 * dynamic_range  # 峰突出度至少达到当前谱动态范围的 5%
-    indexes, _ = find_peaks(y_values, prominence=prominence, distance=distance)  # distance 的单位是采样点数
+    indexes, _ = find_peaks(y_values, height=0.0, prominence=prominence, distance=distance)  # distance 的单位是采样点数
     return x_values[indexes]  # 把峰数组下标转换成 Raman 位移，作为后续拟合初值

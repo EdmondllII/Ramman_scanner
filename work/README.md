@@ -6,6 +6,7 @@
 python work/baseline/baseline_scan.py
 python work/fitting/fit_scan.py
 python work/reconstruction/reconstruct_spectrum.py
+python work/visualization/plot_spectra_comparison.py
 python work/evaluation/evaluate_fit.py
 ```
 
@@ -17,7 +18,7 @@ python work/evaluation/evaluate_fit.py
 
 `reconstruction/`：`reconstruct_spectrum.py` 根据参数表重建指定点的光谱；`add_spectra.py` 相加两条光谱；`subtract_spectra.py` 相减两条光谱；`README.md` 说明用法；`output/` 保存结果。
 
-`evaluation/`：`evaluate_current_fit.py` 直接评估当前校正谱和混合拟合参数，`evaluate_fit.py` 读取两条 CSV 光谱做通用比较；`README.md` 和 `fit_evaluation_and_GaN_attribution.md` 说明用法及峰归因边界；`output/` 保存结果。
+`evaluation/`：`evaluate_current_fit.py` 直接评估当前校正谱和混合拟合参数，`evaluate_fit.py` 读取两条 CSV 光谱做通用比较；[README.md](evaluation/README.md) 按脚本说明用法；历史拟合评估、峰归因与振幅物理约束分析见 [阶段记录](../docs/reports/README.md)；`output/` 保存结果。
 
 `visualization/`：`plot_single_spectrum.py` 绘制单点原始/背景/校正谱；`plot_spectra_comparison.py` 对比多条光谱；`plot_parameter_heatmap.py` 绘制参数热力图；`README.md` 说明用法；`output/` 保存图片。
 
