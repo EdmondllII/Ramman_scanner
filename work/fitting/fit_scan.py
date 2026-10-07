@@ -15,7 +15,6 @@ from raman.io import read_csv_spectrum, read_tiff  # 支持校正 TIFF 或单条
 INPUT_PATH = Path("work/baseline/output/corrected.tif")  # 已扣除背景的 TIFF 或单条 CSV
 OUTPUT_PATH = Path("work/fitting/output/fit_parameters_lopc.csv")  # LOPC 混合拟合参数 CSV
 READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}  # Raman 位移范围
-PEAK_OPTIONS = {"prominence": None, "distance": 3}  # 峰检测参数
 FIT_OPTIONS = {"sigma": None, "vary_centers": True}  # Lorentzian 参数
 LOPC_RANGE = (720.0, 750.0)  # 735 cm^-1 附近的 LOPC 候选范围
 LOPC_OPTIONS = {  # LOPC 初值和固定材料参数
@@ -47,6 +46,10 @@ else:
     cube = np.asarray(data.intensity, dtype=float)
     csv_shifts = csv_spectrum = None
 
+shift_axis = csv_shifts if is_csv else data.spectral_axis
+SAMPLING_STEP_CM = (shift_axis[-1] - shift_axis[0]) / (shift_axis.size - 1)  # cm⁻¹/点，由已有位移轴获取
+PEAK_OPTIONS = {"prominence": None, "distance": 3}  # distance 单位 cm⁻¹，默认仍为原来的 3 个点
+
 records = []
 y_end = 1 if is_csv else (cube.shape[0] if Y_END is None else min(Y_END, cube.shape[0]))
 x_end = 1 if is_csv else (cube.shape[1] if X_END is None else min(X_END, cube.shape[1]))
@@ -60,7 +63,7 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
             continue
         shifts = shifts_source[finite]  # 当前空间点的有效 Raman 位移
         spectrum = corrected[finite]  # 当前空间点的有效校正强度
-        centers = detect_peaks(shifts, spectrum, **PEAK_OPTIONS)  # 返回所有局部峰的 Raman 位移初值
+        centers = detect_peaks(shifts, spectrum, **{**PEAK_OPTIONS, "distance": max(1, int(np.ceil(PEAK_OPTIONS["distance"] / SAMPLING_STEP_CM)))})  # cm⁻¹ 换回寻峰所需的采样点数
         if centers.size == 0:
             continue
 
@@ -109,6 +112,9 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
         for peak_id, center in enumerate(centers, 1):
             if peak_id - 1 == lopc_index:
                 fitted = lopc_result.eval(x=lopc_shifts)  # 用最优参数重新计算窗口内的拟合曲线
+                height = float(np.max(fitted))
+                if height <= 0.0:
+                    continue
                 peak_position = float(lopc_shifts[np.argmax(fitted)])  # 离散曲线最大值位置，不等同于 omega_l
                 records.append({
                     "x": x,
@@ -116,7 +122,7 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
                     "peak_id": peak_id,
                     "model": "lopc",
                     "position": peak_position,
-                    "height": float(np.max(fitted)),
+                    "height": height,
                     "amplitude": lopc_result.params["amplitude"].value,
                     "sigma": np.nan,
                     "gamma": np.nan,
@@ -132,13 +138,16 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
 
             prefix = f"p{lorentz_position + 1}_"  # 与 lorentzian.fit 中的分量参数前缀保持一致
             lorentz_position += 1
+            height = float(lorentz_result.params[f"{prefix}height"].value)
+            if height <= 0.0:
+                continue
             records.append({
                 "x": x,
                 "y": y,
                 "peak_id": peak_id,
                 "model": "lorentzian",
                 "position": lorentz_result.params[f"{prefix}center"].value,
-                "height": lorentz_result.params[f"{prefix}height"].value,
+                "height": height,
                 "amplitude": lorentz_result.params[f"{prefix}amplitude"].value,
                 "sigma": lorentz_result.params[f"{prefix}sigma"].value,
                 "gamma": np.nan,

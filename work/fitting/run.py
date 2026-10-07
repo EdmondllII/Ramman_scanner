@@ -75,13 +75,16 @@ def process_cube(
             for peak_id, _ in enumerate(centers, 1):
                 prefix = f"p{peak_id}_"
                 params = result.params
+                height = float(params[f"{prefix}height"].value)
+                if height <= 0.0:
+                    continue
                 records.append(
                     {
                         "x": float(x_index),
                         "y": float(y_index),
                         "peak_id": float(peak_id),
                         "position": float(params[f"{prefix}center"].value),
-                        "height": float(params[f"{prefix}height"].value),
+                        "height": height,
                         "amplitude": float(params[f"{prefix}amplitude"].value),
                         "sigma": float(params[f"{prefix}sigma"].value),
                         "fwhm": float(params[f"{prefix}fwhm"].value),
