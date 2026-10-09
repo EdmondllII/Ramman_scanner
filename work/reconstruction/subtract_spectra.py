@@ -16,7 +16,8 @@ OUTPUT_PATH = Path("work/reconstruction/output/difference.csv")  # 相减结果
 
 x1, y1 = read_csv_spectrum(FIRST_PATH)
 x2, y2 = read_csv_spectrum(SECOND_PATH)
-y2_on_x1 = y2 if np.array_equal(x1, x2) else np.interp(x1, x2, y2)  # 坐标不同则插值
+if not np.array_equal(x1, x2):
+    raise ValueError("两条光谱必须使用相同的 Raman 位移轴；请先显式对齐")
 OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-np.savetxt(OUTPUT_PATH, np.column_stack((x1, y1 - y2_on_x1)), delimiter=",", header="raman_shift,intensity", comments="")
+np.savetxt(OUTPUT_PATH, np.column_stack((x1, y1 - y2)), delimiter=",", header="raman_shift,intensity", comments="")
 print(f"已保存相减光谱：{OUTPUT_PATH}")

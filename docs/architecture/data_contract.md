@@ -16,14 +16,18 @@
    └─ baseline_scan.py
       ├─ background.tif
       ├─ corrected.tif
-      └─ 指定点校正 CSV
+      └─ baseline/output/ 指定点校正 CSV
           └─ fit_scan.py
              └─ fit_parameters_lopc.csv
                  └─ reconstruct_spectrum.py
                     └─ reconstructed.csv
 ```
 
-评估脚本读取校正光谱和拟合参数，输出 JSON 指标以及用于复核的残差 CSV；可视化脚本只读取已有结果，不改变数据。
+评估脚本只读取目标光谱和 reconstruction 已生成的拟合光谱，两条 CSV 位移轴必须一致；不读取参数、不重建、不拟合、不做物理归因，输出误差指标和残差。当前目标光谱是 baseline 已生成的校正谱。
+
+可视化脚本只读取已有数据和结果并绘图，不扣背景、不重建、不计算评估指标。单谱展示读取已有原始、背景和校正文件；参数热力图只展示明确选择的峰，不对不同峰作统计聚合。基线处理及校正数据输出属于 baseline，从参数生成光谱属于 reconstruction；物理解释和归因记录属于 docs。
+
+`raman/` 是算法库：`io/` 只读取文件，其余算法只处理内存数据并返回数组、数据对象或算法结果；不读取工作流文件、不创建工作流输出、不处理扫描空间循环。所有 CSV、TIFF、JSON、TXT 和 PNG 输出由 `work/` 入口负责。
 
 ## 参数表
 
@@ -36,4 +40,3 @@
 1. 对应的 `work/*/README.md`；
 2. 本文的流程图和字段说明；
 3. [`docs/README.md`](../README.md) 中的导航链接。
-

@@ -14,6 +14,30 @@ python work/reconstruction/reconstruct_spectrum.py
 
 **需要修改的配置**：顶部路径、`X_COORDINATE/Y_COORDINATE`（默认 0、0）、`PEAK_IDS`（默认全部峰）、`PARAMETER_MAPPING`（列名映射）、`READER_OPTIONS` 和旧表使用的 `RECONSTRUCT_METHOD`。重建方法应与拟合方法一致。
 
+## reconstruct_spectrum_fh.py
+
+```bash
+python work/reconstruction/reconstruct_spectrum_fh.py
+```
+
+**用途与模型**：独立完整 A 项重建。`lopc_fh` 行使用拟合得到的 C 和 `A_FH * Im[-1/ε]`，Lorentzian 行按原线型重建；其他模型标记会报错，避免误用旧 LOPC 表。
+
+**输入、输出**：读取 `work/fitting/output/fit_parameters_lopc_fh.csv`，共用校正谱的位移轴；输出 `work/reconstruction/output/reconstructed_fh.csv`。
+
+**需要修改的配置**：顶部路径、坐标、`PEAK_IDS`、位移轴读取配置与列名映射。C 必须来自新参数表，不能替换成初值或文献数值。
+
+## reconstruct_spectrum_fh_convolved.py
+
+```bash
+python work/reconstruction/reconstruct_spectrum_fh_convolved.py
+```
+
+**用途与模型**：独立重建 Gaussian 仪器卷积完整 A 项。`lopc_fh_convolved` 行使用参数表中的 C 和固定 `sigma_inst`，Lorentzian 行保持原线型。
+
+**输入、输出**：读取 `work/fitting/output/fit_parameters_lopc_fh_convolved.csv` 和校正 TIFF 的位移轴；输出 `work/reconstruction/output/reconstructed_fh_convolved.csv`。
+
+**需要修改的配置**：顶部路径、坐标、`PEAK_IDS`、位移轴读取配置和列映射。脚本只使用参数表中的 `sigma_inst`，不重新拟合仪器宽度。
+
 ## reconstruct_from_parameters.py
 
 ```bash
@@ -32,7 +56,7 @@ python work/reconstruction/reconstruct_from_parameters.py --x 0 --y 0
 python work/reconstruction/add_spectra.py
 ```
 
-**用途与方法**：两条光谱相加；位移轴不同时，将第二条插值到第一条的轴上。
+**用途与方法**：两条已对齐光谱相加；位移轴不一致时报错，不自动插值。
 
 **输入、输出**：两列 CSV，默认输入 `first.csv`、`second.csv`，默认输出 `work/reconstruction/output/sum.csv`。
 
@@ -44,7 +68,7 @@ python work/reconstruction/add_spectra.py
 python work/reconstruction/subtract_spectra.py
 ```
 
-**用途与方法**：第一条光谱减去第二条；位移轴不同时，将第二条插值到第一条的轴上。
+**用途与方法**：第一条已对齐光谱减去第二条；位移轴不一致时报错，不自动插值。
 
 **输入、输出**：两列 CSV，默认输入 `first.csv`、`background.csv`，默认输出 `work/reconstruction/output/difference.csv`。
 

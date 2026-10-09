@@ -1,4 +1,4 @@
-"""将逐点拟合参数绘制为空间热力图。"""
+"""绘制指定峰的已有参数，不混合不同峰或计算平均值。"""
 
 from pathlib import Path
 import csv
@@ -11,31 +11,49 @@ if __package__ in (None, ""):
 
 import matplotlib.pyplot as plt
 
-PARAMETERS_PATH = Path("work/fitting/output/fit_parameters.csv")  # 拟合参数表
+PARAMETERS_PATH = Path("work/fitting/output/fit_parameters.csv")
 PARAMETER_NAME = "position"  # 要显示的参数列名
-OUTPUT_PATH = Path("work/visualization/output/position.png")  # 图片输出
+PEAK_ID = 1  # 只展示指定峰编号，不将不同峰混合取平均
+MODEL_NAME = None  # 可设为 lorentzian、lopc 或 lopc_fh，None 不额外筛选模型
+OUTPUT_PATH = Path("work/visualization/output/position.png")
 
-with PARAMETERS_PATH.open(newline="", encoding="utf-8-sig") as stream:
-    rows = list(csv.DictReader(stream))
-if not rows or PARAMETER_NAME not in rows[0]:
-    raise ValueError("参数表为空，或找不到指定参数列")
 
-points = {}
-for row in rows:  # 每一行是一个空间点的一个峰
-    key = (int(float(row["y"])), int(float(row["x"])))
-    points.setdefault(key, []).append(float(row[PARAMETER_NAME]))
-y_max = max(y for y, _ in points)
-x_max = max(x for _, x in points)
-image = np.full((y_max + 1, x_max + 1), np.nan)
-for (y, x), values in points.items():  # 同一点有多个峰时取平均值
-    image[y, x] = np.mean(values)
+def parameter_image(rows, parameter_name, peak_id, model_name=None):
+    """把指定峰的已有参数摆放到网格，重复记录报错，不计算统计量。"""
+    if not rows or parameter_name not in rows[0]:
+        raise ValueError("参数表为空，或找不到指定参数列")
+    points = {}
+    for row in rows:
+        if int(float(row["peak_id"])) != peak_id:
+            continue
+        if model_name is not None and row.get("model", "").strip().lower() != model_name.lower():
+            continue
+        key = (int(float(row["y"])), int(float(row["x"])))
+        if key in points:
+            raise ValueError(f"空间点 {key} 的所选峰有重复记录，请先明确选择")
+        points[key] = float(row[parameter_name])
+    if not points:
+        raise ValueError("没有符合 PEAK_ID 和 MODEL_NAME 的记录")
+    image = np.full((max(y for y, _ in points) + 1, max(x for _, x in points) + 1), np.nan)
+    for (y, x), value in points.items():
+        image[y, x] = value
+    return image
 
-figure, axis = plt.subplots(figsize=(6, 5))
-image_plot = axis.imshow(image, origin="lower", aspect="auto")
-figure.colorbar(image_plot, ax=axis, label=PARAMETER_NAME)
-axis.set(xlabel="x", ylabel="y", title=PARAMETER_NAME)
-figure.tight_layout()
-OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-figure.savefig(OUTPUT_PATH, dpi=150)
-plt.close(figure)
-print(f"已保存图片：{OUTPUT_PATH}")
+
+def main():
+    with PARAMETERS_PATH.open(newline="", encoding="utf-8-sig") as stream:
+        rows = list(csv.DictReader(stream))
+    image = parameter_image(rows, PARAMETER_NAME, PEAK_ID, MODEL_NAME)
+    figure, axis = plt.subplots(figsize=(6, 5))
+    image_plot = axis.imshow(image, origin="lower", aspect="auto")
+    figure.colorbar(image_plot, ax=axis, label=PARAMETER_NAME)
+    axis.set(xlabel="x", ylabel="y", title=f"{PARAMETER_NAME}, peak_id={PEAK_ID}")
+    figure.tight_layout()
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(OUTPUT_PATH, dpi=150)
+    plt.close(figure)
+    print(f"已保存图片：{OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()

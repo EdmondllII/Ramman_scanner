@@ -10,6 +10,26 @@ python work/visualization/plot_spectra_comparison.py
 python work/evaluation/evaluate_fit.py
 ```
 
+完整 Faust–Henry A 项使用独立实验路径，共用已有基线校正结果：
+
+```bash
+python work/fitting/fit_scan_fh.py
+python work/reconstruction/reconstruct_spectrum_fh.py
+python work/visualization/plot_spectra_comparison_fh.py
+python work/evaluation/evaluate_current_fit_fh.py
+```
+
+Gaussian 仪器卷积的完整 A 项使用另一条独立路径；默认 `sigma_inst=1.0 cm⁻¹`，写在 `fit_scan_fh_convolved.py` 顶部：
+
+```bash
+python work/fitting/fit_scan_fh_convolved.py
+python work/reconstruction/reconstruct_spectrum_fh_convolved.py
+python work/visualization/plot_spectra_comparison_fh_convolved.py
+python work/evaluation/evaluate_current_fit_fh_convolved.py
+```
+
+参数、重建谱、图片和评估均输出到独立文件。模型细节与可拟合的 `C` 见 [拟合说明](fitting/README.md#fit_scan_fhpy)。
+
 ## 目录
 
 `baseline/`：`baseline_scan.py` 逐点调用 `raman.baseline` 中的一个基线方法，输出 `background.tif` 和已经扣除背景的 `corrected.tif`；`README.md` 说明用法；`output/` 保存结果。
@@ -18,7 +38,7 @@ python work/evaluation/evaluate_fit.py
 
 `reconstruction/`：`reconstruct_spectrum.py` 根据参数表重建指定点的光谱；`add_spectra.py` 相加两条光谱；`subtract_spectra.py` 相减两条光谱；`README.md` 说明用法；`output/` 保存结果。
 
-`evaluation/`：`evaluate_current_fit.py` 直接评估当前校正谱和混合拟合参数，`evaluate_fit.py` 读取两条 CSV 光谱做通用比较；[README.md](evaluation/README.md) 按脚本说明用法；历史拟合评估、峰归因与振幅物理约束分析见 [阶段记录](../docs/reports/README.md)；`output/` 保存结果。
+`evaluation/`：所有入口只读取目标谱与已重建谱，输出误差指标和残差；`evaluate_current_fit.py`、`evaluate_current_fit_fh.py` 分别配置普通路径与完整 A 项路径，`evaluate_fit.py` 提供通用比较；[README.md](evaluation/README.md) 按脚本说明用法；历史拟合评估、峰归因与振幅物理约束分析见 [阶段记录](../docs/reports/README.md)；`output/` 保存结果。
 
 `visualization/`：`plot_single_spectrum.py` 绘制单点原始/背景/校正谱；`plot_spectra_comparison.py` 对比多条光谱；`plot_parameter_heatmap.py` 绘制参数热力图；`README.md` 说明用法；`output/` 保存图片。
 

@@ -1,7 +1,7 @@
 """估计 TIFF 光谱立方体中选定空间点的背景。
 
 可以修改下面的常量重复执行分析，也可以通过命令行参数覆盖输入、输出和
-空间范围。输出为 ``output/background.tif`` 及元数据。
+空间范围。输出为 ``output/background.tif``、``output/corrected.tif`` 及元数据。
 """
 
 from __future__ import annotations
@@ -70,6 +70,7 @@ def process_cube(
     except ImportError as exc:
         raise RuntimeError("写入 TIFF 输出需要 tifffile") from exc
     tifffile.imwrite(directory / "background.tif", background.astype(np.float32))
+    tifffile.imwrite(directory / "corrected.tif", (cube - background).astype(np.float32))
     metadata = {
         "dimension_order": ["y", "x", "raman_shift"],
         "shape": list(background.shape),
@@ -104,6 +105,7 @@ def main() -> None:
         x_end=args.x_end,
     )
     print(f"Wrote {Path(args.output) / 'background.tif'}")
+    print(f"Wrote {Path(args.output) / 'corrected.tif'}")
     print(f"Processed y={metadata['processing_range']['y']}, x={metadata['processing_range']['x']}")
 
 

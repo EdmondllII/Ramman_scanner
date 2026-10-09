@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from raman.fitting.lopc import lopc
+from raman.lineshapes import lopc
 
 
 def reconstruct(

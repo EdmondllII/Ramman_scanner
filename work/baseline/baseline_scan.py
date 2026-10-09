@@ -1,4 +1,4 @@
-"""逐点估计扫描数据中的背景，并保存背景 TIFF。"""
+"""逐点估计并扣除背景，将背景、校正 TIFF 和单点 CSV 保存到 baseline。"""
 
 from pathlib import Path
 import sys
@@ -15,7 +15,7 @@ from raman.io import read_tiff  # 改成 read_txt 等即可更换读取方法
 INPUT_PATH = Path("E:/Edmon/datas/chipdatas/B144XA04001-230515-NC2176/-26_132_LM532.tif")  # 输入的三维 TIFF 文件
 OUTPUT_PATH = Path("work/baseline/output/background.tif")  # 输出的背景 TIFF 文件
 CORRECTED_OUTPUT_PATH = Path("work/baseline/output/corrected.tif")  # 输出的校正 TIFF 文件
-CORRECTED_CSV_PATH = Path("work/visualization/output/corrected_x0_y0.csv")  # 一个空间点的校正谱
+CORRECTED_CSV_PATH = Path("work/baseline/output/corrected_x0_y0.csv")  # 一个空间点的校正谱
 READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}  # Raman 位移范围
 BASELINE_OPTIONS = {"lam": 1e6, "diff_order": 2, "max_iter": 50}  # 当前基线方法的参数
 Y_START, Y_END = 0, 1  # y 范围；改为 3, 4 就只处理 y=3
@@ -43,7 +43,7 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
                 data.spectral_axis[finite],
                 spectrum[finite],
             )
-        _, background = BASELINE_METHOD(  # 只保存需要扣除的背景，不保存校正谱
+        _, background = BASELINE_METHOD(  # 先取得背景，本步骤统一扣除并保存校正谱
             data.spectral_axis,
             spectrum,
             **BASELINE_OPTIONS,
@@ -58,9 +58,7 @@ corrected_cube = cube - background_cube  # 将背景扣除一次并保存，供 
 tifffile.imwrite(CORRECTED_OUTPUT_PATH, corrected_cube.astype(np.float32))
 print(f"已保存校正光谱：{CORRECTED_OUTPUT_PATH}")
 
-corrected = cube[CSV_Y_COORDINATE, CSV_X_COORDINATE] - background_cube[
-    CSV_Y_COORDINATE, CSV_X_COORDINATE
-]
+corrected = corrected_cube[CSV_Y_COORDINATE, CSV_X_COORDINATE]
 CORRECTED_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
 np.savetxt(
     CORRECTED_CSV_PATH,

@@ -1,4 +1,4 @@
-"""逐点检测扫描数据，并对 735 cm^-1 附近峰使用 LOPC 拟合。"""
+"""Gaussian 仪器卷积完整 A 项实验：735 cm⁻¹ 附近使用卷积 LOPC × Faust–Henry，其他峰使用 Lorentzian。"""
 
 from pathlib import Path
 import csv
@@ -9,30 +9,34 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from raman.fitting import detect_peaks, lopc, lorentzian  # 三个名称分别指向寻峰、LOPC.fit 和 Lorentzian.fit
+from raman.fitting.lopc_fh_convolved import fit as lopc
+from raman.fitting import detect_peaks, lorentzian  # 三个名称分别指向寻峰、LOPC.fit 和 Lorentzian.fit
 from raman.io import read_csv_spectrum, read_tiff  # 支持校正 TIFF 或单条校正 CSV
 from raman.fitting.weighting import saturation_weights
 
 INPUT_PATH = Path("work/baseline/output/corrected.tif")  # 已扣除背景的 TIFF 或单条 CSV
-OUTPUT_PATH = Path("work/fitting/output/fit_parameters_lopc.csv")  # LOPC 混合拟合参数 CSV
+OUTPUT_PATH = Path("work/fitting/output/fit_parameters_lopc_fh_convolved.csv")  # LOPC 混合拟合参数 CSV
 READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}  # Raman 位移范围
 FIT_OPTIONS = {"sigma": None, "vary_centers": True}  # Lorentzian 参数
 # enabled=False 恢复普通最小二乘，此时 alpha、scale 不生效。
-WEIGHT_OPTIONS = {"enabled": True, "alpha": 6.0, "scale": 3}  # scale 为强度单位；平方误差权重范围 1–5
+WEIGHT_OPTIONS = {"enabled": True, "alpha": 6.0, "scale": 3}  # scale 为强度单位；平方误差权重范围 1 至 1+alpha
 LOPC_RANGE = (720.0, 750.0)  # 735 cm^-1 附近的 LOPC 候选范围
-LOPC_OPTIONS = {  # LOPC 初值和固定材料参数
+LOPC_OPTIONS = {  # LOPC 初值、材料参数和仪器响应
+    "C": 0.0,  # 有符号、无量纲的初值；不采用文献的固定数值
+    "vary_C": True,  # True 时 Adam 和 LM 均拟合 C，不设人为上下限
     "omega_t": 533.0,
     "epsilon_inf": 9.5,
     "omega_p": 220.0,
     "gamma_p": 80.0,
     "gamma_ph": 7.0,
-    "optimizer": "adam_then_lm",  # 先用 Adam 预优化，再用现有 LM 精修
+    "optimizer": "lm",  # 卷积模型直接使用 LM，Adam 预优化尚未接入卷积目标函数
     "adam_options": {  # Adam 只作为 LOPC 的初值搜索阶段
         "learning_rate": 0.02,
         "max_steps": 1000,
         "patience": 150,
         "seed": 0,
     },
+    "sigma_inst": 1.0,  # Gaussian 仪器响应的标准差，单位 cm^-1；先使用固定标定候选值
 }
 Y_START, Y_END = 0, 1  # y 范围；改为 3, 4 就只处理 y=3
 X_START, X_END = 0, 1  # x 范围；改为 5, 6 就只处理 x=5
@@ -51,7 +55,7 @@ else:
 
 shift_axis = csv_shifts if is_csv else data.spectral_axis
 SAMPLING_STEP_CM = (shift_axis[-1] - shift_axis[0]) / (shift_axis.size - 1)  # cm⁻¹/点，由已有位移轴获取
-PEAK_OPTIONS = {"prominence": None, "distance": 3}  # distance 单位 cm⁻¹，默认仍为原来的 3 个点
+PEAK_OPTIONS = {"prominence": None, "distance": 3}  # distance 单位 cm⁻¹
 
 records = []
 y_end = 1 if is_csv else (cube.shape[0] if Y_END is None else min(Y_END, cube.shape[0]))
@@ -126,7 +130,7 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
                     "x": x,
                     "y": y,
                     "peak_id": peak_id,
-                    "model": "lopc",
+                    "model": "lopc_fh_convolved",
                     "position": peak_position,
                     "height": height,
                     "amplitude": lopc_result.params["amplitude"].value,
@@ -139,6 +143,8 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
                     "gamma_ph": lopc_result.params["gamma_ph"].value,
                     "omega_t": lopc_result.params["omega_t"].value,
                     "epsilon_inf": lopc_result.params["epsilon_inf"].value,
+                    "C": lopc_result.params["C"].value,
+                    "sigma_inst": lopc_result.params["sigma_inst"].value,
                 })
                 continue
 
@@ -164,13 +170,15 @@ for y in range(Y_START, y_end):  # 修改这里的范围即可选择空间点
                 "gamma_ph": np.nan,
                 "omega_t": np.nan,
                 "epsilon_inf": np.nan,
+                "C": np.nan,
+                "sigma_inst": np.nan,
             })
 
 OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 fields = [
     "x", "y", "peak_id", "model",
     "position", "height", "amplitude", "sigma", "gamma", "fwhm",
-    "omega_l", "omega_p", "gamma_p", "gamma_ph", "omega_t", "epsilon_inf",
+    "omega_l", "omega_p", "gamma_p", "gamma_ph", "omega_t", "epsilon_inf", "C", "sigma_inst",
 ]
 with OUTPUT_PATH.open("w", newline="", encoding="utf-8") as stream:
     writer = csv.DictWriter(stream, fieldnames=fields)

@@ -1,4 +1,4 @@
-"""使用 env1 中的 PyTorch 对 LOPC 参数进行 Adam 预优化。"""
+"""完整 A 项的独立 Adam 预优化；C 为有符号的自由参数。"""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Mapping
 
 import numpy as np
 from .weighting import validate_weights
+from .faust_henry import faust_henry_factor
 
 
 TORCH_ENV_ROOT = Path(r"D:\Edmon\Miniconda\envs\env1")
@@ -33,7 +34,7 @@ except ImportError as exc:  # pragma: no cover - depends on the external env1 in
 _TINY = 1.0e-15
 
 
-def lopc_torch(
+def lopc_fh_torch(
     x,
     amplitude,
     omega_p,
@@ -42,8 +43,9 @@ def lopc_torch(
     omega_l,
     omega_t,
     epsilon_inf,
+    C,
 ):
-    """用 Torch 计算与 NumPy 版一致的 LOPC 损耗线型。"""
+    """用 Torch 计算与 NumPy 版一致的完整 A 项线型。"""
     coordinates = torch.as_tensor(x, dtype=torch.float64)
     tiny = torch.as_tensor(_TINY, dtype=coordinates.dtype, device=coordinates.device)
     frequency = torch.where(
@@ -70,7 +72,9 @@ def lopc_torch(
         / (omega_t**2 - frequency**2 - 1j * frequency * gamma_ph)
         - omega_p**2 / (frequency * (frequency + 1j * gamma_p))
     )
-    return amplitude * torch.imag(-1.0 / dielectric)
+    factor = faust_henry_factor(frequency, omega_p=omega_p, gamma_p=gamma_p,
+        gamma_ph=gamma_ph, omega_l=omega_l, omega_t=omega_t, C=C)
+    return factor * amplitude * torch.imag(-1.0 / dielectric)
 
 
 def _inverse_softplus(value: float) -> float:
@@ -80,15 +84,18 @@ def _inverse_softplus(value: float) -> float:
     return float(np.log(np.expm1(value)))
 
 
-def _physical_values(raw, positive_scales):
+def _physical_values(raw, positive_scales, omega_t, initial_values, vary_C, vary_centers):
     """正值参数无上限；LO 频率不再绑定到拟合数据窗口。"""
-    return {
+    values = {
         name: positive_scales[name] * torch.nn.functional.softplus(raw[index])
         for index, name in enumerate(positive_scales)
     }
+    values["omega_l"] = omega_t + values["omega_l"] if vary_centers else initial_values["omega_l"]
+    values["C"] = raw[-1] if vary_C else initial_values["C"]
+    return values
 
 
-def adam_prefit_lopc(
+def adam_prefit_lopc_fh(
     x: np.ndarray,
     y: np.ndarray,
     *,
@@ -100,6 +107,8 @@ def adam_prefit_lopc(
     patience: int = 150,
     seed: int = 0,
     weights: np.ndarray | None = None,
+    vary_C: bool = True,
+    vary_centers: bool = True,
 ) -> dict[str, float]:
     """在现有 LM 前用 Adam 预优化 LOPC 参数并返回物理参数。"""
     x_values = np.asarray(x, dtype=float)
@@ -114,16 +123,23 @@ def adam_prefit_lopc(
     x_tensor = torch.as_tensor(x_values[valid], dtype=torch.float64)
     y_tensor = torch.as_tensor(y_values[valid], dtype=torch.float64)
     weight_tensor = 1.0 if weights is None else torch.as_tensor(weights[valid], dtype=torch.float64)
+    initial_values = dict(initial_values)
+    if initial_values["omega_l"] <= omega_t:
+        raise ValueError("Full A term requires omega_l > omega_t")
+    if not np.isfinite(initial_values["C"]):
+        raise ValueError("C must be finite")
+    positive_initial = dict(initial_values)
+    positive_initial["omega_l"] -= omega_t
     positive_names = ("amplitude", "omega_p", "gamma_p", "gamma_ph", "omega_l")
     positive_scales = {
-        name: max(abs(float(initial_values[name])), 1.0e-6)
+        name: max(abs(float(positive_initial[name])), 1.0e-6)
         for name in positive_names
     }
     raw = torch.tensor(
         [
-            _inverse_softplus(initial_values[name] / positive_scales[name])
+            _inverse_softplus(positive_initial[name] / positive_scales[name])
             for name in positive_names
-        ],
+        ] + [float(initial_values["C"])],
         dtype=torch.float64,
         requires_grad=True,
     )
@@ -136,8 +152,8 @@ def adam_prefit_lopc(
 
     for step in range(int(max_steps)):
         optimizer.zero_grad(set_to_none=True)
-        values = _physical_values(raw, positive_scales)
-        predicted = lopc_torch(
+        values = _physical_values(raw, positive_scales, omega_t, initial_values, vary_C, vary_centers)
+        predicted = lopc_fh_torch(
             x_tensor,
             omega_t=omega_t,
             epsilon_inf=epsilon_inf,
@@ -162,7 +178,7 @@ def adam_prefit_lopc(
     if not np.isfinite(best_loss):
         raise RuntimeError("Adam LOPC prefit did not produce a finite loss")
     with torch.no_grad():
-        best_values = _physical_values(best_raw, positive_scales)
+        best_values = _physical_values(best_raw, positive_scales, omega_t, initial_values, vary_C, vary_centers)
     result = {name: float(value.cpu()) for name, value in best_values.items()}
     result["adam_loss"] = best_loss
     result["adam_steps"] = float(step + 1)

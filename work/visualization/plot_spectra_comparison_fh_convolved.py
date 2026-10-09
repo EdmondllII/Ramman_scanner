@@ -1,4 +1,4 @@
-"""将多条两列 CSV 光谱绘制在同一张图中。"""
+"""绘制校正谱与独立Gaussian 卷积完整 A 项重建谱的对照图。"""
 
 from pathlib import Path
 import sys
@@ -11,9 +11,9 @@ from raman.io import read_csv_spectrum
 
 INPUT_PATHS = [
     Path("work/baseline/output/corrected_x0_y0.csv"),
-    Path("work/reconstruction/output/reconstructed.csv"),
+    Path("work/reconstruction/output/reconstructed_fh_convolved.csv"),
 ]  # 第一个为数据，其余为拟合曲线
-OUTPUT_PATH = Path("work/visualization/output/comparison.png")  # 图片输出
+OUTPUT_PATH = Path("work/visualization/output/comparison_fh_convolved.png")  # 图片输出
 
 figure, axis = plt.subplots(figsize=(8, 4.5))
 for index, path in enumerate(INPUT_PATHS):

@@ -30,6 +30,7 @@ raman_output/
 raman_preprocessed/
 raman_peaks/
 outputs/
+# 本地探索与诊断脚本（含 tmp/lopc_diagnostics/，不提交）
 tmp/
 work/*/output/**
 !work/*/output/.gitkeep

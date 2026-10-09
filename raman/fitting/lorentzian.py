@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from .weighting import validate_weights
 
 
 def fit(
@@ -12,17 +13,21 @@ def fit(
     centers: np.ndarray | list[float],
     sigma: float | None = None,
     vary_centers: bool = True,
+    weights: np.ndarray | None = None,
 ):
     """使用与 lmfit 参数命名兼容的 Lorentzian 分量进行拟合。"""
     from lmfit.models import LorentzianModel  # lmfit 内置面积归一化 Lorentzian 模型
 
     x_values = np.asarray(x, dtype=float)
     y_values = np.asarray(y, dtype=float)
+    weights = validate_weights(weights, y_values)
     valid = np.isfinite(x_values) & np.isfinite(y_values)  # 清除无法参与残差计算的数据点
     if valid.sum() < 3:
         raise ValueError("At least three finite spectrum points are required")
     x_values, y_values = x_values[valid], y_values[valid]
     order = np.argsort(x_values)  # 后续插值和采样间隔估计都要求有序坐标
+    if weights is not None:
+        weights = weights[valid][order]
     x_values, y_values = x_values[order], y_values[order]  # 位移和强度保持一一对应
     peak_centers = np.asarray(centers, dtype=float)  # detect_peaks 的结果就是各分量中心初值
     if peak_centers.ndim != 1 or peak_centers.size == 0:
@@ -48,4 +53,4 @@ def fit(
             parameters = component_parameters
         else:
             parameters.update(component_parameters)
-    return model.fit(y_values, parameters, x=x_values)  # 未指定 method，lmfit 默认以 leastsq/LM 最小化残差平方和
+    return model.fit(y_values, parameters, x=x_values, weights=weights)  # weights 是残差乘数

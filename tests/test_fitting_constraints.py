@@ -35,10 +35,9 @@ class FittingConstraintsTests(unittest.TestCase):
                 params[f'p{peak_id}_{name}'] = SimpleNamespace(value=value)
         with TemporaryDirectory() as output_dir, \
                 patch.object(run, 'READ_DATA', return_value=data), \
-                patch('tifffile.imread', return_value=np.zeros((1, 1, 9))), \
                 patch.object(run, 'detect_peaks', return_value=np.array([1., 2., 3.])), \
                 patch.object(run, 'FIT_METHOD', return_value=SimpleNamespace(params=params)):
-            records, metadata = run.process_cube('input.tif', 'background.tif', output_dir)
+            records, metadata = run.process_cube('corrected.tif', output_dir)
             self.assertEqual([record['peak_id'] for record in records], [3.])
             self.assertEqual(records[0]['height'], 2.)
             self.assertEqual(metadata['record_count'], 1)

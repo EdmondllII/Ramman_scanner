@@ -63,7 +63,9 @@ for y in range(Y_START, Y_END):
 
 ## 评估和可视化
 
-`evaluate_fit.py` 比较两条已对齐的 CSV 光谱并保存指标。三个可视化脚本分别绘制单点谱、多谱线对比和参数热力图；它们都直接读取文件并保存图片。
+评估入口只比较两条已对齐的 CSV 光谱并保存误差指标和残差，不读取参数或重建模型。`evaluate_fit.py` 为通用入口，`evaluate_current_fit.py` 与 `evaluate_current_fit_fh.py` 仅配置各路径的目标谱、已重建谱和输出位置。
+
+可视化脚本读取已有文件并保存图片，不扣背景、不重建、不评估。单点谱图读取 baseline 已生成的校正文件；参数热力图展示指定峰的已有参数，不对不同峰取平均。公共 LOPC 线型位于 `raman/lineshapes.py`，拟合与重建分别通过自己的接口使用；物理解释属于 docs。
 
 ## 信息保存
 

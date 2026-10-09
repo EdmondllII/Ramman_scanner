@@ -32,6 +32,8 @@ x(\omega)=\frac{\omega-\omega_c}{\omega_c}.
 
 ## 3. Faust--Henry 因子
 
+以下公式对应[原文](trnit1999_195-220.pdf)印刷页 197 的式 (3.2)、(3.3)、(3.5)。\(\Gamma\) 为声子阻尼，\(\gamma\) 为等离激元阻尼；介电函数、\(\Delta\) 和 Faust–Henry 分子使用同一个 \(\Gamma\)，不引入独立的 \(\eta\) 参数。代码中二者分别对应 `gamma_ph` 和 `gamma_p`。
+
 \[
 \Delta(\omega)
 =
@@ -56,7 +58,7 @@ A_{\mathrm{FH}}(\omega)
 (\omega_{\mathrm T}^{2}-\omega^{2})
 \\
 &\qquad
--\omega^{2}\eta
+-\omega^{2}\Gamma
 (\omega^{2}+\gamma^{2}-\omega_{\mathrm p}^{2})
 \Big]
 \\
@@ -67,10 +69,10 @@ A_{\mathrm{FH}}(\omega)
 (\omega_{\mathrm L}^{2}-\omega_{\mathrm T}^{2})
 \\
 &\qquad
-+\omega_{\mathrm p}^{2}\eta
++\omega_{\mathrm p}^{2}\Gamma
 (\omega_{\mathrm p}^{2}-2\omega^{2})
 +
-\omega^{2}\eta(\omega^{2}+\gamma^{2})
+\omega^{2}\Gamma(\omega^{2}+\gamma^{2})
 \Big].
 \end{aligned}
 \]
@@ -285,7 +287,7 @@ y_i-I_{\mathrm{fit}}(\omega_i;\boldsymbol\theta)
 \boldsymbol\theta_{\mathrm{fit}}
 =
 \left(
-I_0,\omega_{\mathrm p},\Gamma,\gamma,C,\eta,
+I_0,\omega_{\mathrm p},\Gamma,\gamma,C,
 \sigma,\omega_c,\beta_0,\ldots,\beta_m
 \right).
 \]
@@ -297,6 +299,8 @@ I_0,\omega_{\mathrm p},\Gamma,\gamma,C,\eta,
 \omega_{\mathrm L},\omega_{\mathrm T},\epsilon_\infty
 \right).
 \]
+
+这里将 \(\omega_{\mathrm L}\) 列为固定参数，是以具有适用于当前样品条件的独立参考值为前提。它表示无自由载流子耦合时的 LO 声子参考频率，不是观测到的 LOPC 峰顶位置；参考值应考虑样品的应变、温度等条件，不直接照搬文献数值。若缺少可靠参考，可以将其移入拟合参数，但应检查它与载流子参数的相关性和结果稳定性。当前 `fit_scan_fh.py` 允许 \(\omega_{\mathrm L}\) 参与拟合，固定 \(\omega_{\mathrm T}\) 和 \(\epsilon_\infty\)。
 
 \[
 \boldsymbol\theta_{\mathrm{full}}

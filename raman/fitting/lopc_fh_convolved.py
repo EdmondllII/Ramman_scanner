@@ -1,4 +1,4 @@
-"""LOPC 介电损耗线型拟合。"""
+"""独立实验模型：完整 Faust–Henry A 项经 Gaussian 仪器响应卷积，C 可拟合。"""
 
 from __future__ import annotations
 
@@ -8,8 +8,7 @@ from .weighting import validate_weights
 
 _TINY = 1.0e-15
 
-
-from raman.lineshapes import lopc
+from raman.lineshapes import lopc_fh_convolved
 
 
 def fit(
@@ -25,11 +24,14 @@ def fit(
     vary_centers: bool = True,
     vary_omega_t: bool = False,
     vary_epsilon_inf: bool = False,
+    C: float = 0.0,  # Signed coefficient, fitted without bounds.
+    vary_C: bool = True,
     optimizer: str = "lm",
     adam_options: dict | None = None,
     weights: np.ndarray | None = None,
+    sigma_inst: float = 1.0,
 ):
-    r"""使用 lmfit 拟合单条 \(A_1(\mathrm{LO})\) LOPC 线型。
+    r"""使用 lmfit 拟合经过 Gaussian 仪器响应卷积的完整 A 项 LOPC 线型。
 
     centers 必须只包含一个初始 LO 频率；omega_t 和 epsilon_inf
     提供 TO 频率与高频介电常数的初值。
@@ -58,6 +60,13 @@ def fit(
     if not np.isfinite(epsilon_inf) or epsilon_inf <= 0:
         raise ValueError("epsilon_inf must be a positive finite number")
 
+    if not np.isfinite(sigma_inst) or sigma_inst < 0:
+        raise ValueError("sigma_inst must be a finite non-negative number")
+    if not np.isfinite(C):
+        raise ValueError("C must be finite")
+    if peak_centers[0] <= omega_t:
+        raise ValueError("Full A term requires initial omega_l > omega_t")
+
     omega_l0 = float(peak_centers[0])  # 用窗口内唯一检测峰作为 omega_l 初值
     spacing = float(np.median(np.diff(x_values)))  # 估计当前数据的典型采样间隔
     width0 = max(abs(spacing) * 2.0, _TINY)  # 未提供阻尼初值时使用的最低尺度
@@ -84,7 +93,7 @@ def fit(
             raise ValueError(f"{name} must be a positive finite number")
     if not np.isfinite(omega_p0) or omega_p0 < 0:
         raise ValueError("omega_p must be a non-negative finite number")
-    base = lopc(  # 先用全部初值计算一条未缩放的参考曲线
+    base = lopc_fh_convolved(  # 先用全部初值计算一条未缩放的参考曲线
         x_values,
         omega_p=omega_p0,
         gamma_p=gamma_p0,
@@ -92,12 +101,14 @@ def fit(
         omega_l=omega_l0,
         omega_t=float(omega_t),
         epsilon_inf=float(epsilon_inf),
+        C=float(C),
+        sigma_inst=float(sigma_inst),
     )
     base_max = float(np.nanmax(base)) if np.any(np.isfinite(base)) else 0.0  # 初始理论曲线峰高
     signal_max = max(float(np.nanmax(y_values)), 0.0)  # 窗口内实测峰高
     amplitude0 = signal_max / base_max if base_max > _TINY else 1.0  # 让初始曲线高度接近实测数据
 
-    model = Model(lopc, independent_vars=["x"], nan_policy="omit")  # x 是自变量，其余函数参数交给 lmfit
+    model = Model(lopc_fh_convolved, independent_vars=["x"], nan_policy="omit")  # x 是自变量，其余函数参数交给 lmfit
     parameters = model.make_params(  # 建立优化参数并写入本轮初值
         amplitude=max(amplitude0, _TINY),
         omega_p=omega_p0,
@@ -106,6 +117,8 @@ def fit(
         omega_l=omega_l0,
         omega_t=float(omega_t),
         epsilon_inf=float(epsilon_inf),
+        C=float(C),
+        sigma_inst=float(sigma_inst),
     )
     parameters["amplitude"].set(min=0.0)  # 强度缩放不允许为负，目前没有上限
     parameters["omega_p"].set(min=0.0)  # 等离子频率不允许为负，目前没有上限
@@ -114,33 +127,15 @@ def fit(
     parameters["omega_l"].set(min=_TINY, vary=vary_centers)  # 默认允许 LO 参数从检测峰位继续变化
     parameters["omega_t"].set(min=_TINY, vary=vary_omega_t)  # 当前调用中固定为 533 cm^-1
     parameters["epsilon_inf"].set(min=_TINY, vary=vary_epsilon_inf)  # 当前调用中固定为 9.5
+    parameters["sigma_inst"].set(value=float(sigma_inst), min=0.0, vary=False)
 
-    if optimizer not in {"lm", "adam_then_lm"}:
-        raise ValueError("optimizer must be 'lm' or 'adam_then_lm'")
-    adam_result = None
-    if optimizer == "adam_then_lm":
-        from .adam_prefit import adam_prefit_lopc
+    # Physical LO-TO ordering; no artificial frequency window or upper bound.
+    parameters.add("lo_to_gap", value=omega_l0 - omega_t, min=1.e-12, vary=vary_centers)
+    parameters["omega_l"].set(expr="omega_t + lo_to_gap")
+    parameters["C"].set(vary=vary_C)
 
-        try:
-            adam_result = adam_prefit_lopc(
-                x_values,
-                y_values,
-                initial_values={
-                    name: parameters[name].value
-                    for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph", "omega_l")
-                },
-                omega_t=float(omega_t),
-                epsilon_inf=float(epsilon_inf),
-                weights=weights,
-                **(adam_options or {}),
-            )
-        except (ImportError, RuntimeError) as exc:
-            # Adam 环境或数值阶段失败时，继续用原始初值执行 LM。
-            adam_result = {"error": str(exc)}
-        else:
-            for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph", "omega_l"):
-                parameters[name].set(value=adam_result[name])
-
+    if optimizer not in {"lm"}:
+        raise ValueError("convolved fitting currently supports optimizer='lm' only")
     result = model.fit(
         y_values,
         parameters,
@@ -148,5 +143,4 @@ def fit(
         method="leastsq",
         weights=weights,
     )  # 先由 Adam 提供初值，再由现有 leastsq/LM 做最终精修
-    result.adam_prefit = adam_result
     return result

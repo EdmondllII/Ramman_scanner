@@ -18,8 +18,7 @@ from raman.io import read_tiff
 
 READ_DATA = read_tiff
 FIT_METHOD = gaussian
-INPUT_PATH = Path("input.tif")
-BACKGROUND_PATH = Path(__file__).parents[1] / "baseline" / "output" / "background.tif"
+INPUT_PATH = Path("work/baseline/output/corrected.tif")  # baseline 已扣背景的输入
 OUTPUT_DIR = Path(__file__).parent / "output"
 READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}
 PEAK_OPTIONS = {"prominence": None, "distance": 3}
@@ -32,7 +31,6 @@ FIELDS = ["x", "y", "peak_id", "position", "height", "amplitude", "sigma", "fwhm
 
 def process_cube(
     input_path: str | Path = INPUT_PATH,
-    background_path: str | Path = BACKGROUND_PATH,
     output_dir: str | Path = OUTPUT_DIR,
     *,
     y_start: int = Y_START,
@@ -43,14 +41,7 @@ def process_cube(
     data = READ_DATA(input_path, **READER_OPTIONS)
     if data.kind != "cube" or data.spectral_axis is None or data.y is None:
         raise ValueError("拟合工作流需要三维 TIFF 光谱立方体")
-    try:
-        import tifffile
-    except ImportError as exc:
-        raise RuntimeError("读取 TIFF 背景需要 tifffile") from exc
-    background = np.asarray(tifffile.imread(background_path), dtype=float)
     cube = np.asarray(data.intensity, dtype=float)
-    if background.shape != cube.shape:
-        raise ValueError(f"Background shape {background.shape} does not match cube {cube.shape}")
     y_stop = cube.shape[0] if y_end is None else min(y_end, cube.shape[0])
     x_stop = cube.shape[1] if x_end is None else min(x_end, cube.shape[1])
     if not (0 <= y_start <= y_stop and 0 <= x_start <= x_stop):
@@ -59,7 +50,7 @@ def process_cube(
     records: list[dict[str, float]] = []
     for y_index in range(y_start, y_stop):
         for x_index in range(x_start, x_stop):
-            corrected = cube[y_index, x_index] - background[y_index, x_index]
+            corrected = cube[y_index, x_index]
             finite = np.isfinite(corrected) & np.isfinite(data.spectral_axis)
             if finite.sum() < 3:
                 continue
@@ -105,7 +96,6 @@ def process_cube(
         "peak_options": PEAK_OPTIONS,
         "fit_options": FIT_OPTIONS,
         "input_file": str(Path(input_path)),
-        "background_file": str(Path(background_path)),
         "output_fields": FIELDS,
         "record_count": len(records),
     }
@@ -118,7 +108,6 @@ def process_cube(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=INPUT_PATH)
-    parser.add_argument("--background", type=Path, default=BACKGROUND_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--y-start", type=int, default=Y_START)
     parser.add_argument("--y-end", type=int, default=Y_END)
@@ -126,7 +115,7 @@ def main() -> None:
     parser.add_argument("--x-end", type=int, default=X_END)
     args = parser.parse_args()
     _, metadata = process_cube(
-        args.input, args.background, args.output,
+        args.input, args.output,
         y_start=args.y_start, y_end=args.y_end,
         x_start=args.x_start, x_end=args.x_end,
     )
