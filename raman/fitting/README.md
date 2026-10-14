@@ -7,7 +7,7 @@
 - `voigt.py`：封装 `lmfit.models.VoigtModel`，使用相同接口执行 Voigt 拟合。
 - `lopc.py`：使用 \(A_{\mathrm{FH}}=1\) 的介电损耗函数执行单峰 LOPC 拟合；该模型参数相关性较强，应传入物理合理的 `omega_p`、`gamma_p` 和 `gamma_ph` 初值。
 - `lopc_fh.py`：完整 Faust–Henry A 项的独立拟合接口，C 可拟合。两条接口的纯线型公式均位于公共 `raman/lineshapes.py`，重建通过自己的接口复用这些公式。
-- `lopc_fh_convolved.py`：完整 Faust–Henry A 项经过固定 Gaussian 仪器响应后的独立拟合接口；`sigma_inst` 为固定的仪器标准差，当前只支持 LM，避免把未卷积 Adam 目标混入卷积拟合。
+- `lopc_fh_convolved.py`：完整 Faust–Henry A 项经过 Gaussian 仪器响应后的独立拟合接口；支持 LM 或 Adam → LM，两阶段都计算卷积线型。`sigma_inst` 为 Gaussian 标准差，`vary_sigma_inst` 同时控制两阶段是否优化，接口默认 False，工作脚本当前为 True。
 
 `voigt(..., gamma=None)` 沿用 lmfit 默认的 `gamma=sigma` 约束；显式传入 `gamma` 时，该参数作为独立的 Lorentzian 半高半宽参与拟合。
 
@@ -18,4 +18,4 @@
 
 寻峰要求候选点高度 `> 0`，不会截断输入光谱中的负值。Gaussian、Lorentzian、Voigt 和 LOPC 的拟合振幅均设非负下界；普通峰的正宽度与非负面积共同保证峰高非负。工作脚本不导出拟合高度小于等于零的分量。
 
-LOPC 的 Adam 和 LM 阶段均不设人为参数上限，也不将 `omega_l` 限制在数据窗口内；保留频率、阻尼及介电常数的物理正值要求。`omega_t` 和 `epsilon_inf` 默认仍作为固定材料参数，由 `vary_omega_t` 和 `vary_epsilon_inf` 控制是否参与 LM 优化。
+LOPC 的 Adam 和 LM 阶段均不设人为参数上限，也不将 `omega_l` 限制在数据窗口内；保留频率、阻尼及介电常数的物理正值要求。普通 LOPC、FH 和卷积 FH 都使用 `vary_amplitude`、`vary_omega_p`、`vary_gamma_p`、`vary_gamma_ph`、`vary_omega_l`、`vary_omega_t`、`vary_epsilon_inf` 同时控制两个优化阶段；FH 另有 `vary_C`。接口默认固定 `omega_t` 和 `epsilon_inf`，正式实验的取值由工作脚本配置。`vary_omega_l=False` 固定绝对 LO 频率；关闭振幅优化时使用自动估计的初始振幅。FH 两阶段通过物理 LO–TO 关系保持 `omega_l > omega_t`。

@@ -18,8 +18,8 @@ CORRECTED_OUTPUT_PATH = Path("work/baseline/output/corrected.tif")  # 输出的�
 CORRECTED_CSV_PATH = Path("work/baseline/output/corrected_x0_y0.csv")  # 一个空间点的校正谱
 READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}  # Raman 位移范围
 BASELINE_OPTIONS = {"lam": 1e6, "diff_order": 2, "max_iter": 50}  # 当前基线方法的参数
-Y_START, Y_END = 0, 1  # y 范围；改为 3, 4 就只处理 y=3
-X_START, X_END = 0, 1  # x 范围；改为 5, 6 就只处理 x=5
+Y_START, Y_END = 0, None  # y 范围；改为 3, 4 就只处理 y=3
+X_START, X_END = 0, None  # x 范围；改为 5, 6 就只处理 x=5
 CSV_X_COORDINATE, CSV_Y_COORDINATE = 0, 0  # 要导出的校正谱空间点
 
 data = read_tiff(INPUT_PATH, **READER_OPTIONS)

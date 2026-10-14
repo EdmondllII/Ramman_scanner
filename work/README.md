@@ -7,7 +7,7 @@ python work/baseline/baseline_scan.py
 python work/fitting/fit_scan.py
 python work/reconstruction/reconstruct_spectrum.py
 python work/visualization/plot_spectra_comparison.py
-python work/evaluation/evaluate_fit.py
+python work/evaluation/evaluate_current_fit.py
 ```
 
 完整 Faust–Henry A 项使用独立实验路径，共用已有基线校正结果：
@@ -19,7 +19,7 @@ python work/visualization/plot_spectra_comparison_fh.py
 python work/evaluation/evaluate_current_fit_fh.py
 ```
 
-Gaussian 仪器卷积的完整 A 项使用另一条独立路径；默认 `sigma_inst=1.0 cm⁻¹`，写在 `fit_scan_fh_convolved.py` 顶部：
+Gaussian 仪器卷积的完整 A 项使用另一条独立路径；`sigma_inst` 初值为 1.0 cm⁻¹，当前 `vary_sigma_inst=True`，Adam 和 LM 均优化。改为 False 恢复固定宽度版本，配置写在 `fit_scan_fh_convolved.py` 顶部：
 
 ```bash
 python work/fitting/fit_scan_fh_convolved.py
@@ -29,6 +29,8 @@ python work/evaluation/evaluate_current_fit_fh_convolved.py
 ```
 
 参数、重建谱、图片和评估均输出到独立文件。模型细节与可拟合的 `C` 见 [拟合说明](fitting/README.md#fit_scan_fhpy)。
+
+每次运行须对齐各阶段的路径、位移轴和空间点：基线与拟合的处理范围应覆盖待重建点，绘图与评估读取本轮重建输出。当前 baseline 和未卷积 FH 拟合处理全图；卷积 FH 拟合、重建、绘图和评估默认原点。未卷积 FH 重建为三维 TIFF，绘图和评估按配置提取单点；卷积 FH 重建仍为单点 CSV。切换空间点时同步修改相应坐标及 baseline 的 CSV 导出点。
 
 ## 目录
 

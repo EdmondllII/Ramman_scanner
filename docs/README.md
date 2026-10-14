@@ -8,7 +8,7 @@
 
 1. 先看[项目结构与工作流](architecture/workflow_design.md)，了解 `raman/` 和 `work/` 的职责边界。
 2. 再看[数据与结果约定](architecture/data_contract.md)，了解 TIFF、CSV、参数表和坐标之间的关系。
-3. 再看[物理模型与当前拟合](models/GaN_A1LO_载流子效应与线形模型.md)，了解当前 LOPC/Fano 讨论和解释限制。
+3. 再看[载流子效应与线形模型](models/GaN_A1LO_载流子效应与线形模型.md)，了解 LOPC/Fano 的物理机制、参数含义和结果解释条件。
 4. 需要理解具体算法时，查看[模型公式](models/GaN_A1LO_拟合数学模型.md)以及[依赖库原理调研](research/README.md)。
 5. 需要了解开发过程和历史背景时，查看[实施计划](plans/Adam预优化_LM实施计划.md)和[阶段报告](reports/README.md)。
 
@@ -21,8 +21,10 @@
 
 ### 模型与物理
 
-- [GaN A1(LO) 载流子效应专题](models/GaN_A1LO_载流子效应与线形模型.md)：LOPC、Fano 及物理解释边界。
-- [GaN A1(LO) LOPC 拟合函数](models/GaN_A1LO_拟合数学模型.md)：拟合函数、参数和目标函数。
+- [GaN A1(LO) 载流子效应专题](models/GaN_A1LO_载流子效应与线形模型.md)：物理机制、逐项参数含义、材料性质反演与解释边界。
+- [GaN A1(LO) LOPC 拟合函数](models/GaN_A1LO_拟合数学模型.md)：公式、符号与单位、参数定义域、目标函数和数学可辨识性。
+
+`models/` 只保存物理原理、数学模型及原始文献；实验数据、拟合结果、探索过程和咨询材料归入 `reports/`，脚本配置与运行命令归入对应代码目录的 README。
 
 ### 依赖库原理
 

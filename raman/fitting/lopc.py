@@ -22,7 +22,11 @@ def fit(
     omega_p: float | None = None,
     gamma_p: float | None = None,
     gamma_ph: float | None = None,
-    vary_centers: bool = True,
+    vary_amplitude: bool = True,
+    vary_omega_p: bool = True,
+    vary_gamma_p: bool = True,
+    vary_gamma_ph: bool = True,
+    vary_omega_l: bool = True,
     vary_omega_t: bool = False,
     vary_epsilon_inf: bool = False,
     optimizer: str = "lm",
@@ -31,8 +35,9 @@ def fit(
 ):
     r"""使用 lmfit 拟合单条 \(A_1(\mathrm{LO})\) LOPC 线型。
 
-    centers 必须只包含一个初始 LO 频率；omega_t 和 epsilon_inf
-    提供 TO 频率与高频介电常数的初值。
+    代码参数名与公式对应为：omega_l=omega_L、omega_t=omega_T、
+    gamma_p=gamma、gamma_ph=Gamma。centers 必须只包含一个初始 LO
+    频率；omega_t 和 epsilon_inf 提供 TO 频率与高频介电常数的初值。
     """
     from lmfit import Model  # 将 lopc() 包装成可计算残差并优化参数的模型
 
@@ -107,13 +112,20 @@ def fit(
         omega_t=float(omega_t),
         epsilon_inf=float(epsilon_inf),
     )
-    parameters["amplitude"].set(min=0.0)  # 强度缩放不允许为负，目前没有上限
-    parameters["omega_p"].set(min=0.0)  # 等离子频率不允许为负，目前没有上限
-    parameters["gamma_p"].set(min=_TINY)  # 载流子阻尼仅设正下界，目前没有上限
-    parameters["gamma_ph"].set(min=_TINY)  # 声子阻尼仅设正下界，目前没有上限
-    parameters["omega_l"].set(min=_TINY, vary=vary_centers)  # 默认允许 LO 参数从检测峰位继续变化
-    parameters["omega_t"].set(min=_TINY, vary=vary_omega_t)  # 当前调用中固定为 533 cm^-1
+    parameters["amplitude"].set(min=0.0, vary=vary_amplitude)
+    parameters["omega_p"].set(min=0.0, vary=vary_omega_p)
+    parameters["gamma_p"].set(min=_TINY, vary=vary_gamma_p)
+    parameters["gamma_ph"].set(min=_TINY, vary=vary_gamma_ph)
+    parameters["omega_l"].set(min=_TINY, vary=vary_omega_l)
+    omega_t_limits = {"min": _TINY, "vary": vary_omega_t}
+    if vary_omega_t and not vary_omega_l:
+        omega_t_limits["max"] = omega_l0
+    parameters["omega_t"].set(**omega_t_limits)
     parameters["epsilon_inf"].set(min=_TINY, vary=vary_epsilon_inf)  # 当前调用中固定为 9.5
+
+    if vary_omega_l:
+        parameters.add("lo_to_gap", value=omega_l0 - omega_t, min=1.e-12, vary=True)
+        parameters["omega_l"].set(expr="omega_t + lo_to_gap")
 
     if optimizer not in {"lm", "adam_then_lm"}:
         raise ValueError("optimizer must be 'lm' or 'adam_then_lm'")
@@ -127,19 +139,31 @@ def fit(
                 y_values,
                 initial_values={
                     name: parameters[name].value
-                    for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph", "omega_l")
+                    for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph",
+                                 "omega_l", "omega_t", "epsilon_inf")
                 },
                 omega_t=float(omega_t),
                 epsilon_inf=float(epsilon_inf),
                 weights=weights,
+                vary_amplitude=vary_amplitude,
+                vary_omega_p=vary_omega_p,
+                vary_gamma_p=vary_gamma_p,
+                vary_gamma_ph=vary_gamma_ph,
+                vary_omega_l=vary_omega_l,
+                vary_omega_t=vary_omega_t,
+                vary_epsilon_inf=vary_epsilon_inf,
                 **(adam_options or {}),
             )
         except (ImportError, RuntimeError) as exc:
             # Adam 环境或数值阶段失败时，继续用原始初值执行 LM。
             adam_result = {"error": str(exc)}
         else:
-            for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph", "omega_l"):
-                parameters[name].set(value=adam_result[name])
+            for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph",
+                         "omega_l", "omega_t", "epsilon_inf"):
+                if name == "omega_l" and vary_omega_l:
+                    parameters["lo_to_gap"].set(value=adam_result[name] - adam_result["omega_t"])
+                elif name != "omega_l" and name in adam_result:
+                    parameters[name].set(value=adam_result[name])
 
     result = model.fit(
         y_values,

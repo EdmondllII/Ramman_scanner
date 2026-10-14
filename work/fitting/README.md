@@ -18,11 +18,11 @@ python work/fitting/fit_scan.py
 
 **需要修改的配置**：顶部路径、`READER_OPTIONS`、`PEAK_OPTIONS`（寻峰）、`FIT_OPTIONS`（Lorentzian）、`LOPC_RANGE`（候选峰和数据分区）、`LOPC_OPTIONS`（LOPC 初值、材料参数和优化器）。`Y_START/Y_END`、`X_START/X_END` 控制空间范围，默认只处理 `(x=0, y=0)`。
 
-`LOPC_OPTIONS["optimizer"]` 当前为 `"adam_then_lm"`，先由 PyTorch Adam 搜索初值区域，再由 lmfit `leastsq`/LM 精修。`adam_options` 控制学习率、步数、早停和种子；改为 `"lm"` 可关闭预优化。Torch 通过 `D:\Edmon\Miniconda\envs\env1\Lib\site-packages` 导入，导入或运行阶段失败时回退到原始初值执行 LM。
+`LOPC_OPTIONS["optimizer"]` 当前为 `"adam_then_lm"`，先由 PyTorch Adam 搜索初值区域，再由 lmfit `leastsq`/LM 精修。`adam_options` 控制学习率、步数、早停和种子；改为 `"lm"` 可关闭预优化。普通 LOPC 与 FH 使用同一组 `vary_*` 参数开关，开关同时作用于 Adam 和 LM。Torch 通过 `D:\Edmon\Miniconda\envs\env1\Lib\site-packages` 导入，导入或运行阶段失败时回退到原始初值执行 LM。
 
 `WEIGHT_OPTIONS` 控制加权最小二乘，当前启用，实验初值为 `alpha=6.0`、`scale=3.0`。平方误差权重为 `w=1+alpha*(1-exp(-max(y,0)/scale))`，只由观测数据计算一次；`scale` 是强度单位，控制饱和速度，`alpha` 控制最大额外权重。当前权重从 1 增长至 7，负值和零值权重为 1。Lorentzian、LOPC 的 Adam 和 LM 均使用固定的 `sqrt(w)` 残差乘数。设置 `enabled=False` 恢复普通最小二乘；不影响寻峰或参数约束。评估脚本仍报告未加权误差，便于对照；加权拟合的参数不确定度不能直接解释为测量误差。
 
-Adam 和 LM 不设人为参数上限，不将 `omega_l` 限制在数据窗口内；保留非负振幅和频率、阻尼、介电常数的物理正值要求。`omega_t` 和 `epsilon_inf` 默认固定，可用 `vary_omega_t`、`vary_epsilon_inf` 控制是否参与 LM 优化。
+Adam 和 LM 不设人为参数上限，不将 `omega_l` 限制在数据窗口内；保留非负振幅和频率、阻尼、介电常数的物理正值要求。`omega_t` 和 `epsilon_inf` 默认固定；所有 `vary_*` 开关同时作用于 Adam 和 LM。
 
 ## fit_scan_fh.py
 
@@ -34,7 +34,7 @@ python work/fitting/fit_scan_fh.py
 
 **输入、输出**：共用 `work/baseline/output/corrected.tif`，也支持 CSV；输出 `work/fitting/output/fit_parameters_lopc_fh.csv`。完整 A 项行标记为 `model=lopc_fh`，新增 `C` 列；Lorentzian 行的 `C` 为 NaN。必须使用对应的 `reconstruct_spectrum_fh.py` 重建。
 
-**需要修改的配置**：顶部路径、寻峰、加权、LOPC 区间及优化器配置与旧脚本相同，单独维护。`LOPC_OPTIONS["C"]=0.0` 是初值，`vary_C=True` 时 Adam 和 LM 均优化 C。C 有符号、无量纲，不设上下限；0 对应常数散射因子的旧模型。未采用文献的固定 C=0.55。振幅非负，频率和阻尼保持物理正值，LO 频率通过正的 LO–TO 间隔保持高于 TO；不设人为频率窗口或上限。`vary_C=False` 可做固定 C 对照。`WEIGHT_OPTIONS["enabled"]=False` 恢复不加权。
+**需要修改的配置**：顶部路径、寻峰、加权、LOPC 区间及优化器配置与旧脚本相同，单独维护。`LOPC_OPTIONS` 中的 `vary_amplitude`、`vary_omega_p`、`vary_gamma_p`、`vary_gamma_ph`、`vary_omega_l`、`vary_omega_t`、`vary_epsilon_inf` 和 `vary_C` 同时控制 Adam 与 LM；关闭后对应参数保持初值。当前八个开关均为 True，空间范围为全图（`Y_END/X_END=None`）；单点需改成相邻整数。`vary_omega_l=False` 固定绝对 `omega_l`；若同时优化 `omega_t`，LO–TO 间隔随之调整并始终保持 `omega_l > omega_t`。C 有符号、无量纲，不设上下限。`WEIGHT_OPTIONS["enabled"]=False` 恢复不加权。
 
 公式依据 [原文](../../docs/models/trnit1999_195-220.pdf) 印刷页 197 式 (3.2)–(3.3)：声子阻尼统一为 `gamma_ph`，二次 C 项保留 `omega_p² * gamma_ph * (omega_p² - 2ω²)`。旧数学文档中的未定义 `η` 和漏写因子未照搬。该实验未加入 B 散射项、仪器卷积或局部背景；增加 C 不保证解决参数退化，应比较残差和参数稳定性。
 
@@ -57,8 +57,8 @@ python work/fitting/fit_scan_fh_convolved.py
 ```
 
 **用途与模型**：独立的 Gaussian 仪器卷积完整 A 项实验。LOPC 窗口使用
-`I0 * G_sigma * [A_FH(ω) * Im(-1/epsilon(ω))]`，其他峰继续使用 Lorentzian；输入、寻峰、分区和权重规则与 `fit_scan_fh.py` 独立维护。`sigma_inst` 是固定 Gaussian 标准差，默认 1.0 cm⁻¹；新路径当前直接使用 LM，不调用未卷积的 Adam 预优化。
+`I0 * G_sigma * [A_FH(ω) * Im(-1/epsilon(ω))]`，其他峰继续使用 Lorentzian；输入、寻峰、分区、权重、`vary_*` 开关和 Adam → LM 优化规则与 `fit_scan_fh.py` 对齐。`sigma_inst` 是 Gaussian 标准差，初值 1.0 cm⁻¹；当前 `vary_sigma_inst=True`，两阶段均参与优化，仅设非负要求。当前空间范围只处理原点。
 
 **输入、输出**：读取 `work/baseline/output/corrected.tif`，输出 `work/fitting/output/fit_parameters_lopc_fh_convolved.csv`。卷积 LOPC 行标记为 `model=lopc_fh_convolved`，并保存 `sigma_inst`。
 
-**需要修改的配置**：顶部输入输出路径、`LOPC_RANGE`、`WEIGHT_OPTIONS`、`LOPC_OPTIONS` 和 `LOPC_OPTIONS["sigma_inst"]`。应优先把 `sigma_inst` 改成由仪器或标准样品标定的值；采样间隔不能直接当作仪器分辨率。模型公式见 [GaN A1LO 数学模型](../../docs/models/GaN_A1LO_拟合数学模型.md)第 5 节和 [完整 A 项工作流报告](../../docs/reports/LOPC_FH_拟合稳定性检查_2026-10-07.md)。
+**需要修改的配置**：顶部输入输出路径、空间范围、`LOPC_RANGE`、`WEIGHT_OPTIONS`、`LOPC_OPTIONS`。`vary_sigma_inst=False` 时，Adam 和 LM 均固定为 `sigma_inst`，恢复此前固定宽度版本；固定且取零恢复未卷积线型。优化宽度时必须提供正初值。未经标定的拟合宽度只作有效 Gaussian 展宽；获得仪器或标准样品标定值后可固定该值。采样间隔不能直接当作仪器分辨率。模型公式见 [GaN A1LO 数学模型](../../docs/models/GaN_A1LO_拟合数学模型.md)第 5 节和 [完整 A 项工作流报告](../../docs/reports/LOPC_FH_拟合稳定性检查_2026-10-07.md)。

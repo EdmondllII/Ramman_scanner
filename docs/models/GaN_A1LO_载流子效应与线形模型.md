@@ -1,5 +1,7 @@
 # GaN A1(LO) 载流子效应专题：LOPC 与 Raman Fano 干涉
 
+本文说明物理机制、参数含义与结果解释条件。线型的完整代数表达、单位和数学可辨识性见《[GaN A1LO 拟合数学模型](GaN_A1LO_拟合数学模型.md)》；脚本配置与运行命令见各目录 README，实验与咨询记录见 [reports](../reports/README.md)。
+
 ## 0. 阅读方式与范围
 
 本文只把下面两种机制作为正文的主线：
@@ -14,7 +16,7 @@
 - \(\omega\) 表示角频率，时间因子采用 \(\exp(-i\omega t)\)；
 - Raman 横轴若使用波数 \(\widetilde\nu\)（\(\mathrm{cm^{-1}}\)），最后再用 \(\omega=2\pi c\widetilde\nu\) 转换；
 - “峰位”指响应函数的峰位置，不自动等同于介电函数零点的实部；阻尼和仪器卷积会使二者不同；
-- 当前项目若固定使用 airPLS，应把基线方法和参数固定记录。基线扣除是数据预处理，不应被复杂峰形模型用来吸收真实的电子连续背景。
+- 基线扣除属于预处理；电子 Raman 连续态若参与散射干涉，应作为样品响应的一部分，不能当作无关背景直接扣除。
 
 对数学读者，最重要的区别可以先写成：
 
@@ -26,6 +28,30 @@
 \]
 
 前者改变的是耦合系统的谱结构，后者改变的是两条散射路径之间的交叉项。
+
+### 0.1 LOPC／FH 参数的物理意义
+
+**omega_p（\(\omega_p\)）**：载流子的屏蔽等离子频率。自由载流子集体振荡的频率尺度，由浓度、有效质量与高频屏蔽共同决定；不是裸等离子频率，也不是耦合 Raman 峰位。
+
+**gamma_p（\(\gamma\)）**：载流子阻尼。Drude 模型中对应动量弛豫率 \(1/\tau_p\)，由有效质量与迁移率决定；越大表示载流子散射越强、弛豫越快，不等于 Raman 峰的 FWHM。
+
+**gamma_ph（\(\Gamma\)）**：声子阻尼。描述晶格振子响应的耗散，可包含非谐衰减、缺陷等贡献；同时进入介电函数和 Faust–Henry 因子，影响本征共振与散射线型，不能直接当作耦合峰的实测宽度。
+
+**omega_l（\(\omega_L\)）**：无自由载流子耦合时的 LO 声子参考频率。对应极性晶格的纵向本征响应，可受应变和温度影响；通常不同于有载流子时的 LOPC 峰顶。
+
+**omega_t（\(\omega_T\)）**：无自由载流子耦合时的 TO 声子参考频率。对应横向晶格振子；\(\omega_L^2-\omega_T^2\) 控制介电模型中的极性振子强度。
+
+**epsilon_inf（\(\epsilon_\infty\)）**：高频背景相对介电常数。主要表示束缚电子的极化与背景屏蔽；显式的声子、Drude 响应另列于介电函数中，不是包含这些低频贡献的静态介电常数。
+
+**amplitude（\(I_0\)）**：LOPC／FH 的整体 Raman 强度系数。包含激光强度、收集效率、散射几何及整体散射强度；不等于曲线峰顶高度，未经强度标定不能直接解释为载流子浓度。
+
+**C（\(C\)）**：Faust–Henry 相对散射系数。描述形变势与电光散射的相对贡献及干涉；有符号，改变散射效率随频率的分布，正负不能由总强度非负条件决定。
+
+**sigma_inst（\(\sigma_{\mathrm{inst}}\)）**：Gaussian 仪器响应的标准差。描述观测响应的展宽；未经仪器标定时，拟合值只能作有效 Gaussian 展宽，可能吸收未分辨的其他展宽贡献。
+
+背景系数 \(\beta_k\) 描述平滑背景；\(\omega_c\) 是背景基函数的参考坐标。权重参数 \(\alpha\)、`scale` 控制数值目标中的强度权重。这些量均不是声子或载流子的材料参数。单位与代码符号对应见数学文档第 0 节。
+
+下文推导中的记号对应：\(\omega_{\mathrm{LO}}=\omega_L\)、\(\omega_{\mathrm{TO}}=\omega_T\)、\(\gamma_{\mathrm{ph}}=\Gamma\)、\(\gamma_p=\gamma\)。
 
 ## 1. 共同的谱学起点
 
@@ -80,20 +106,22 @@ I_{\mathrm{obs}}(\omega)-B(\omega)
 
 \[
 I_{\mathrm{V}}(\omega)
-=A\,[G(\omega;\sigma)*L(\omega;\omega_0,\gamma_{\mathrm{ph}})].
+=A\,[G(\omega;\sigma)*L(\omega;\omega_0,\kappa)].
 \]
 
-其中：
+其中 \(\omega_0\) 为孤立参考共振的中心，\(A\) 为面积强度系数，\(\sigma\) 为 Gaussian 标准差：
 
 \[
-L(\omega;\omega_0,\gamma_{\mathrm{ph}})
+L(\omega;\omega_0,\kappa)
 =
 \frac{1}{\pi}
-\frac{\gamma_{\mathrm{ph}}}
-{(\omega-\omega_0)^2+\gamma_{\mathrm{ph}}^2},
+\frac{\kappa}
+{(\omega-\omega_0)^2+\kappa^2},
 \qquad
-\gamma_{\mathrm{ph}}=\mathrm{HWHM}.
+\kappa=\mathrm{HWHM}.
 \]
+
+\(\kappa\) 是参考 Lorentzian 的半高半宽；介电模型的 \(\Gamma=\gamma_{\mathrm{ph}}\) 是振子方程中的阻尼系数。无载流子、窄共振且散射效率近似常数时，\(\kappa\simeq\Gamma/2\)，不能把二者混作同一个参数。
 
 Voigt 只作为参考模型；若峰位、宽度或强度随自由载流子显著变化，应检验 LOPC 或 Fano，而不是只增大 Voigt 宽度。
 
@@ -229,7 +257,7 @@ D_{\mathrm{ph}}(\omega)=
 - \(\epsilon_\infty\)：高频介电常数，表示不在此频段显式建模的电子极化；
 - \(\omega_{\mathrm{TO}}\)、\(\omega_{\mathrm{LO}}\)：无自由载流子时的横向和纵向光学声子频率；
 - \(\gamma_{\mathrm{ph}}\)：声子阻尼；
-- \(\omega_p\)：已经除以 \(\epsilon_\infty\) 的屏蔽等离子频率；
+- \(\omega_p\)：包含高频屏蔽的等离子频率，\(\omega_p^2=ne^2/(\epsilon_0\epsilon_\infty m^*)\)；
 - \(\gamma_p=1/\tau\)：载流子动量弛豫率。
 
 在 SI 单位下：
@@ -240,14 +268,6 @@ D_{\mathrm{ph}}(\omega)=
 \qquad
 \gamma_p=\frac{1}{\tau}=
 \frac{e}{m^*\mu}.
-\]
-
-\[
-[n]=\mathrm{m^{-3}},
-\qquad
-[\omega_p]=[\gamma_p]=\mathrm{s^{-1}},
-\qquad
-[\mu]=\mathrm{m^2\,V^{-1}\,s^{-1}}.
 \]
 
 不同文献有时把未除以 \(\epsilon_\infty\) 的量称为裸等离子频率。实现时必须检查定义，不能只看符号 \(\omega_p\)。若采用 \(\exp(+i\omega t)\)，介电函数虚部的符号会整体改变，但物理吸收和最终强度不变；代码中应统一时间约定。
@@ -331,7 +351,7 @@ Kozawa 等在不同载流子浓度的 n-GaN 中观察到 LO 带向高频移动�
 
 \[
 S_{\mathrm{LOPC}}(\omega)=
-A\,[n_B(\omega,T)+1]
+I_0\,[n_B(\omega,T)+1]
 R(\omega)
 \operatorname{Im}\left[-\frac{1}{\epsilon(\omega)}\right].
 \]
@@ -344,6 +364,15 @@ n_B(\omega,T)=
 \]
 
 是 Stokes 散射的 Bose 因子，\(R(\omega)\) 代表 Raman 散射矩阵元、偏振几何以及形变势和电光散射贡献。Kozawa 等指出，形变势和电光机制会影响 GaN 耦合模 Raman 强度，因此 \(\operatorname{Im}[-1/\epsilon]\) 是最小近似，不是所有实验几何下的完整截面。[Kozawa 等（1994）](https://doi.org/10.1063/1.356492)
+
+Faust–Henry A 项保留形变势散射与电光散射的相对贡献和干涉：
+
+\[
+I_A=I_0A_{\mathrm{FH}}\operatorname{Im}[-1/\epsilon],
+\qquad A_{\mathrm{FH}}=1+C a_1(\omega)+C^2a_2(\omega).
+\]
+
+一次 C 项体现干涉，二次项保留相对散射强度；\(C=0\) 恢复纯介电损耗形式。若 \(A_{\mathrm{FH}}\) 在窗口内近似常数，可并入整体强度系数；否则省略它会改变线型，使其他参数代偿散射效率的频率依赖。完整函数见数学文档第 3 节；来源为《[Raman Scattering Characterization of Hexagonal GaN Layer on Sapphire Substrate](trnit1999_195-220.pdf)》印刷页 197 式 (3.2)–(3.5)。
 
 若在窄频段内 \(R(\omega)\simeq R_0\)，则：
 
@@ -388,21 +417,14 @@ G(\omega;\sigma_{\mathrm{inst}})*S_{\mathrm{LOPC}}(\omega)
 从上述关系可见：
 
 \[
-\omega_p^2\propto\frac{n}{m^*},
+\omega_p^2\propto\frac{n}{\epsilon_\infty m^*},
 \qquad
 \gamma_p\propto\frac{1}{m^*\mu}.
 \]
 
-因此单条 Raman 线形直接约束的通常是 \(n/m^*\) 和 \(1/(m^*\mu)\)，不是完全独立的 \(n\)、\(m^*\) 与 \(\mu\)。若要反演 \(n\) 和 \(\mu\)，应固定或外部标定 \(m^*\)、\(\epsilon_\infty\)、\(\omega_{\mathrm{TO}}\)、\(\omega_{\mathrm{LO}}\) 以及散射矩阵元。扫描共焦 Raman 载流子成像也采用这类介电响应来反演空间载流子分布。[Matthews 等（2001）](https://doi.org/10.1063/1.1415421)
+因此单条 Raman 线形直接约束的通常是 \(n/(\epsilon_\infty m^*)\) 和 \(1/(m^*\mu)\)，不是完全独立的 \(n\)、\(m^*\)、\(\epsilon_\infty\) 与 \(\mu\)。反演材料性质需要相应的质量、介电常数与参考声子信息；增加自由参数不自动增加独立的物理信息。扫描共焦 Raman 载流子成像也采用这类介电响应反演空间分布。[Matthews 等（2001）](https://doi.org/10.1063/1.1415421)
 
-从数值拟合角度，令参数向量为 \(\boldsymbol\theta\)，模型为 \(I(\omega;\boldsymbol\theta)\)，局部可辨识性取决于 Jacobian：
-
-\[
-J_{ij}=\frac{\partial I(\omega_i;\boldsymbol\theta)}
-{\partial\theta_j}.
-\]
-
-若 \(J\) 的列近似线性相关，或者 \((J^{\mathsf T}WJ)^{-1}\) 病态，那么增加自由参数只会制造强相关而不会增加可靠信息。LOPC 拟合中尤其要避免同时自由放开 \(m^*\)、\(\epsilon_\infty\)、声子频率、仪器宽度、背景曲率和 \(n\)。
+数学上的精确退化和近似退化见数学文档第 8 节；反演后的材料解释见第 5 节。
 
 ### 2.6 n-GaN 与 p-GaN
 
@@ -567,7 +589,7 @@ G(\omega;\sigma)*S_F(\omega)+B(\omega).
 
 Harima 等在 p-GaN Raman 光谱中观察到随空穴浓度增加而增强的低频连续带，并将其归因于空穴的价带间跃迁。[Harima 等（1998a）](https://doi.org/10.1063/1.122348) 同一研究组随后指出，该电子连续带与重叠的声子带发生 Fano 干涉，并提出用连续带强度及干涉特征表征空穴浓度。[Harima 等（1998b）](https://doi.org/10.1016/S0022-0248(98)00246-2)
 
-需要保留证据边界：上述论文的公开摘要支持“p-GaN 中价带间电子连续态与重叠声子带发生 Fano 干涉”，但没有在摘要中把发生干涉的声子无歧义地指定为 \(A_1(\mathrm{LO})\)。因此本项目可以把 Fano-Voigt 作为 \(A_1(\mathrm{LO})\) 的候选模型，但不能仅凭这两篇论文就把任意 \(A_1(\mathrm{LO})\) 不对称认定为 Fano。
+需要保留证据边界：上述论文的公开摘要支持“p-GaN 中价带间电子连续态与重叠声子带发生 Fano 干涉”，但没有在摘要中把发生干涉的声子无歧义地指定为 \(A_1(\mathrm{LO})\)。Fano-Voigt 可以作为候选模型，但不能仅凭这两篇论文就把任意 \(A_1(\mathrm{LO})\) 不对称认定为 Fano。
 
 要把某条 \(A_1(\mathrm{LO})\) 峰解释为载流子 Fano，至少应检查：
 
@@ -576,6 +598,16 @@ Harima 等在 p-GaN Raman 光谱中观察到随空穴浓度增加而增强的低
 3. \(q_F\)、\(\Gamma_F\) 和连续背景是否随空穴浓度、注入电流或激发能量系统变化；
 4. 反共振方向是否在重复测量中稳定，而不是基线、空间平均或仪器响应造成；
 5. 允许 LOPC 后，Fano 是否仍显著改善残差并具有稳定、有限的参数置信区间。
+
+Fano 参数的物理意义：
+
+**\(\omega_F\)**：离散态与连续态耦合后的共振参考频率，包含自能造成的频移。
+
+**\(\Gamma_F\)**：Fano 共振分母中的宽度参数；不直接等于非对称强度曲线的 FWHM，也不同于 LOPC 的 \(\Gamma\)。
+
+**\(q_F\)**：离散态与连续态散射的相对振幅和相位参数，控制不对称及反共振；不是载流子浓度的直接读数。
+
+**\(I_c\)**：电子连续态的 Raman 强度尺度；将真实连续态当作背景扣除会改变干涉模型的物理含义。
 
 ## 4. 两种主模型的数学区别
 
@@ -622,66 +654,92 @@ I(\omega)\propto
 \right\rvert^2.
 \]
 
-其中 \(\chi_{\mathrm{LOPC}}\) 本身包含介电函数耦合，\(\chi_{\mathrm{cont}}\) 需要连续态的频率依赖、相位和 Raman 张量。这个模型的参数相关性很强，若没有独立的载流子浓度、偏振或激发能量数据，容易出现不可辨识。因此开发顺序应是先分别验证 LOPC 和 Fano，再考虑联合模型，而不是一开始把所有参数同时放开。
+其中 \(\chi_{\mathrm{LOPC}}\) 本身包含介电函数耦合，\(\chi_{\mathrm{cont}}\) 需要连续态的频率依赖、相位和 Raman 张量。该模型增加了相对相位和连续态自由度；若缺少独立载流子、偏振或激发能量信息，不同参数可能描述近似相同的响应。
 
-## 5. 面向 GaN LED 的拟合与判别顺序
+## 5. 拟合参数的物理解释边界
 
-### 5.1 模型层级
+### 5.1 浓度、迁移率与材料条件
 
-建议保留以下层级：
-
-1. **参考模型**：Voigt，用于确认峰位、基础宽度和仪器分辨率；
-2. **n-GaN 主模型**：LOPC 介电响应，再与实测或 Gaussian 仪器函数卷积；
-3. **p-GaN 条件模型**：在电子连续背景有证据时使用 Fano 或 Fano-Voigt；
-4. **联合研究模型**：连续态振幅与 LOPC 响应相干叠加，仅在数据和外部约束足够时使用；
-5. **附录模型**：角向色散、空间平均和额外自能修正，用于解释主模型无法解释的残差。
-
-### 5.2 n-GaN
-
-1. 用低载流子样品确定 \(\omega_{\mathrm{TO}}\)、\(\omega_{\mathrm{LO}}\) 和声子阻尼的合理范围；
-2. 优先拟合 LOPC 介电损耗形式，并固定文献或独立测量给出的 \(m^*\) 和介电常数；
-3. 检查反演的 \(n\)、\(\mu\) 是否与 Hall、电容或器件结构的量级一致；
-4. 只有在 LOPC、角向色散和空间平均都不能解释的连续背景及反共振结构出现时，才引入 Fano 振幅。
-
-### 5.3 p-GaN
-
-1. p-GaN 仍可能存在 LOPC，但空穴质量、各向异性和阻尼会降低线形反演的灵敏度；[Demangeot 等（1998）](https://doi.org/10.1016/S0038-1098(98)00093-3)
-2. 检查低频电子连续带是否随空穴浓度或注入条件增强，这是采用 Fano 模型的重要前提；[Harima 等（1998a）](https://doi.org/10.1063/1.122348)
-3. Mg 掺杂浓度不等于自由空穴浓度，补偿和激活率需要独立电学约束；
-4. 若只有平滑偏斜峰而没有连续态证据，保留 LOPC、空间叠加和附录效应作为竞争解释。
-
-### 5.4 参数和单位
-
-LOPC 的最小参数通常为：
-
-- 载流子浓度 \(n\)；
-- 载流子阻尼 \(\gamma_p\)，或在固定 \(m^*\) 后用迁移率 \(\mu\)；
-- 声子阻尼 \(\gamma_{\mathrm{ph}}\)；
-- 总强度和小幅频率标定偏移；
-- 最好由标准样品预先固定的仪器 Gaussian 宽度。
-
-以下量不宜全部自由变化：\(m^*\)、\(\epsilon_\infty\)、\(\omega_{\mathrm{TO}}\)、\(\omega_{\mathrm{LO}}\)、Faust-Henry/散射矩阵元系数、背景曲率和仪器宽度。
-
-Fano 的最小参数为 \(\omega_F\)、\(\Gamma_F\)、\(q_F\)、连续背景尺度及其必要的平滑频率依赖。\(q_F\) 是相位和相对振幅参数，不应未经模型推导就直接当作载流子浓度。
-
-介电函数和等离子频率天然使用角频率 \(\mathrm{rad\,s^{-1}}\)，而 Raman 横轴通常是波数 \(\mathrm{cm^{-1}}\)：
+单载流子 Drude 模型中：
 
 \[
-\omega=2\pi c\,\widetilde\nu.
+\omega_p^2=\frac{ne^2}{\epsilon_0\epsilon_\infty m^*},
+\qquad
+\gamma=\frac1{\tau_p}=\frac{e}{m^*\mu}.
 \]
 
-不能把以 \(\mathrm{cm^{-1}}\) 表示的峰位直接代入 SI 的等离子频率公式。可以在内部全部转换为角频率，计算完后再转换回 Raman shift；或者从头到尾使用一致的波数形式，并同步转换所有阻尼参数。
+**\(n\)**：参与该响应的自由载流子浓度，不等于 Mg 等掺杂原子的浓度。
 
-### 5.5 物理解释的最低证据
+**\(m^*\)**：相应载流子及响应方向的有效质量；不能将 n-GaN 的电子质量直接用于 p-GaN 空穴。
 
-较小的 chisqr、AIC 或 BIC 只能说明曲线拟合得更好，不能单独确认机制。至少还应满足：
+**\(\mu\)**：该 Drude 响应对应的迁移率；与独立电学值比较时须考虑载流子类型、温度和方向。
 
-- 参数远离人为边界且置信区间有限；
-- 多个空间点或重复测量中参数连续、可重复；
-- LOPC 的 \(n\)、\(\mu\) 与独立电学测量量级相符；
-- Fano 的 \(q_F\) 与连续背景、激发能量或载流子条件同步变化；
-- 改变偏振、数值孔径或入射几何后，附录效应可以被区分；
-- 模型能预测未参与拟合的谱线或实验条件，而不只是降低当前曲线残差。
+光谱首先约束 \(n/(\epsilon_\infty m^*)\) 与 \(1/(m^*\mu)\)。没有独立的质量、介电常数和材料条件，不能把 \(\omega_p\)、\(\gamma\) 唯一转换成 \(n\)、\(\mu\)。p-GaN 的较大空穴质量和阻尼还会降低这种反演的灵敏度，见第 2.6 节。
+
+### 5.2 阻尼、寿命与实测峰宽
+
+对孤立、弱阻尼的晶格振子：
+
+\[
+\ddot Q+\Gamma\dot Q+\omega_T^2Q=0,
+\qquad
+Q(t)\propto e^{-\Gamma t/2}\cos(\omega_dt+\phi),
+\]
+
+\[
+\tau_{\mathrm{amplitude}}=\frac2\Gamma,
+\qquad
+\tau_{\mathrm{energy}}=\frac1\Gamma.
+\]
+
+上式使用角频率阻尼。无载流子、窄峰且散射因子近似常数时：
+
+\[
+\mathrm{FWHM}_{\mathrm{intrinsic}}\simeq\Gamma,
+\qquad
+\mathrm{HWHM}\simeq\Gamma/2.
+\]
+
+LOPC 的两个耗散通道由耦合模共同承担；模的衰减应由复频率零点决定，不能直接取 \(\Gamma+\gamma\)。FH 散射效率和仪器卷积又会改变强度曲线，因此 **\(\Gamma\)、\(\gamma\) 都不等于观测峰的 FWHM**。
+
+很小的拟合 \(\Gamma\) 只表示模型中的晶格耗散很小。是否意味着材料本征寿命很长，还取决于仪器展宽、参数相关性及未建模响应；不能仅据此认定样品极其纯净。
+
+### 5.3 强载流子阻尼下的组合参数
+
+若整个窗口满足 \(\gamma\gg|\omega|\)，则：
+
+\[
+-\frac{\omega_p^2}{\omega(\omega+i\gamma)}
+\simeq\frac{iK}{\omega},
+\qquad K=\frac{\omega_p^2}{\gamma}.
+\]
+
+介电响应主要感受到 \(K\)，而非分别感受到 \(\omega_p\)、\(\gamma\)。在上述单载流子模型和 SI 角频率单位下：
+
+\[
+K=\frac{ne\mu}{\epsilon_0\epsilon_\infty}
+=\frac{\sigma_{\mathrm{dc}}}{\epsilon_0\epsilon_\infty}.
+\]
+
+**\(K\)**：背景介电常数归一化的电导率尺度。它是强阻尼近似下的组合量，不能作为任意 FH 线型的严格不变量，也不能替代声子阻尼。不同参数组给出相似曲线，可能源于这种灵敏度退化，而非存在两种不同的材料状态。
+
+### 5.4 强度、散射效率与仪器展宽
+
+以屏蔽 \(\omega_p\) 为独立参数时，模型强度只包含比值 \(I_0/\epsilon_\infty\)。未引入独立约束的单条谱不能分别确定二者；\(\epsilon_\infty\) 的变化不能直接解释成电子极化变化，\(I_0\) 的变化也不能直接解释成散射强度变化。数学上的等价变换见数学文档第 8 节。
+
+\(C\) 改变形变势与电光机制的干涉；总强度非负并不要求 \(C\ge0\)。若窗口内 \(A_{\mathrm{FH}}\) 近似常数，其作用主要被 \(I_0\) 吸收，此时 \(C\) 的反演也不敏感。
+
+\[
+\mathrm{FWHM}_G=2\sqrt{2\ln2}\,\sigma_{\mathrm{inst}}.
+\]
+
+自由拟合的 \(\sigma_{\mathrm{inst}}\) 与本征线宽可能相关；只有仪器标定支持时，才能将它单独解释为仪器分辨率。采样间隔也不等于仪器分辨率；远小于采样间隔的离散卷积宽度可能没有可辨识的曲线差异。
+
+### 5.5 从曲线一致性到物理解释
+
+残差小不保证参数唯一，也不单独确认 LOPC 或 Fano 机制。材料参数的解释需要同时满足：参数可辨识、结果对噪声和初值稳定、参考材料条件适用，并与独立电学或仪器信息相容。
+
+LOPC 需区分载流子耦合、应变和温升造成的频移；Fano 需有兼容对称性通道的电子连续态及干涉证据。空间平均、角向色散和仪器响应可产生竞争解释，见附录 A。
 
 ## 附录 A：次要或替代解释
 
@@ -733,128 +791,7 @@ I_{\mathrm{pixel}}(\omega)=
 
 ### A.4 基线、仪器和 Voigt 近似
 
-airPLS 只能估计预处理背景，不能替代电子连续态模型。仪器 Gaussian 展宽应对完整 LOPC 或 Fano 响应卷积，不能用基线或独立峰宽吸收真实的物理结构。Voigt 是参考模型，不应被当作 LOPC 或 Fano 的物理解释。
-
-## 实施结果：物理先验初值与边界敏感性分析
-
-本节记录将前述 LOPC 物理模型应用到当前扫描数据后的第一轮数值检验。目标峰已确定为掺杂 p-GaN 的 \(A_1(\mathrm{LO})\) 峰；本节不重新讨论峰的归属，只检验在物理先验初值下，当前最小 LOPC 线型能否稳定反演载流子相关参数。
-
-### 0. 面向外部物理咨询的摘要
-
-对当前 \((x=0,y=0)\) 光谱的测试表明：改变载流子浓度、迁移率所对应的初始参数后，非线性最小二乘拟合都回到相近的强阻尼区域。因此，当前现象不是“初值选错”这么简单，而是数据窗口与最小 LOPC 模型之间存在参数退化或结构不匹配。
-
-需要区分以下三类结论：
-
-1. \(\omega_{\mathrm l}\approx735~\mathrm{cm^{-1}}\) 与已知的掺杂 GaN \(A_1(\mathrm{LO})\) 峰位置相容；
-2. \(\omega_{\mathrm p}\) 和 \(\gamma_{\mathrm p}\) 的数量级可以作条件性的载流子参数参考，但目前不能视为由 Raman 单条谱线独立测得的 \(n\) 和 \(\mu\)；
-3. \(\gamma_{\mathrm{ph}}\) 被推到极小值，尤其是无边界拟合得到的 \(2.5\times10^{-5}~\mathrm{cm^{-1}}\)，不能解释为真实的 GaN 本征声子线宽。它更可能是在补偿未建模的仪器展宽、局部背景或其它峰的尾部。
-
-因此，当前结果支持“该谱窗与掺杂 GaN 的 LOPC 响应相容”，但不支持仅凭这条谱线唯一反演自由载流子浓度、迁移率和本征声子阻尼。
-
-### 1. 数据和拟合设置
-
-测试使用校正光谱 work/baseline/output/corrected.tif 的 \((x=0,y=0)\) 点，在 \(720\)--\(750~\mathrm{cm^{-1}}\) 窗口内拟合。窗口包含 100 个采样点，采样间隔约 \(0.3006~\mathrm{cm^{-1}}\)，观测强度最大值位于约 \(735.07~\mathrm{cm^{-1}}\)。
-
-固定参数为：
-
-\[
-\omega_{\mathrm T}=533~\mathrm{cm^{-1}},\qquad
-\epsilon_\infty=9.5.
-\]
-
-为了避免把数值优化跑到明显不合理的区域，LM 拟合暂时使用如下边界：
-
-| 参数 | 边界 |
-|---|---:|
-| \(I_0\)（amplitude） | \(0\) 到初始幅度的 10 倍（至少为 1） |
-| \(\omega_{\mathrm p}\) | \(0\)--\(700~\mathrm{cm^{-1}}\) |
-| \(\gamma_{\mathrm p}\) | \(20\)--\(5000~\mathrm{cm^{-1}}\) |
-| \(\gamma_{\mathrm{ph}}\) | \(0.5\)--\(20~\mathrm{cm^{-1}}\) |
-| \(\omega_{\mathrm l}\) | \(720\)--\(750~\mathrm{cm^{-1}}\) |
-
-Adam 阶段若启用，也必须使用与 LM 相同的物理可行域；否则 Adam 得到的初值在 LM 阶段仍可能离开该区域。
-
-### 2. 物理先验初值
-
-由于当前样品按 p-GaN 处理，下面的第一轮换算仍暂时取 \(m^*=0.2m_0\)、\(\epsilon_\infty=9.5\) 作为数值参照，而不是 p-GaN 的最终物理先验。实际 p-GaN 应使用空穴有效质量、空穴迁移率和自由空穴浓度；空穴有效质量具有各向异性，且 Mg 掺杂浓度不等于自由空穴浓度。使用的换算关系为
-
-\[
-\omega_{\mathrm p}=\frac{1}{2\pi c}\sqrt{\frac{ne^2}{\epsilon_0\epsilon_\infty m^*}},\qquad
-\gamma_{\mathrm p}=\frac{1}{2\pi c\tau}=\frac{e}{2\pi c\,m^*\mu}.
-\]
-
-这里的 \(n\) 用 \(\mathrm{cm^{-3}}\)、\(\mu\) 用 \(\mathrm{cm^2/(V\,s)}\) 时，计算结果再换算为 \(\mathrm{cm^{-1}}\)。测试的初值为：
-
-| 假设 | \(\omega_{\mathrm p,0}\) | \(\gamma_{\mathrm p,0}\) | \(\gamma_{\mathrm{ph},0}\) | \(\omega_{\mathrm l,0}\) |
-|---|---:|---:|---:|---:|
-| \(n=10^{17}~\mathrm{cm^{-3}},\ \mu=200\) | 68.7 | 233 | 4 | 734 |
-| \(n=10^{18}~\mathrm{cm^{-3}},\ \mu=100\) | 217 | 467 | 4 | 734 |
-| \(n=3\times10^{18}~\mathrm{cm^{-3}},\ \mu=30\) | 376 | 1556 | 5 | 734 |
-| \(n=3\times10^{18}~\mathrm{cm^{-3}},\ \mu=10\) | 376 | 4669 | 7 | 734 |
-
-这些数值只是为了测试优化器对不同数量级初值的响应，并不是当前 p-GaN 样品的可信载流子先验。对于 p-GaN，应使用独立电学测量或文献中与样品生长条件相符的空穴有效质量、自由空穴浓度和迁移率；Mg 掺杂浓度不能直接当作自由空穴浓度。
-
-### 3. 拟合结果
-
-四组不同初值均收敛到几乎相同的结果：
-
-\[
-\begin{aligned}
-\omega_{\mathrm l}&\simeq735.30~\mathrm{cm^{-1}},\\
-\omega_{\mathrm p}&\simeq425~\mathrm{cm^{-1}},\\
-\gamma_{\mathrm p}&\simeq5000~\mathrm{cm^{-1}},\\
-\gamma_{\mathrm{ph}}&\simeq0.5~\mathrm{cm^{-1}},\\
-\mathrm{RMSE}&\simeq0.7452.
-\end{aligned}
-\]
-
-其中 \(\gamma_{\mathrm p}\) 撞到上边界，\(\gamma_{\mathrm{ph}}\) 撞到下边界。作为比较，原先没有这些有限边界的结果为：
-
-\[
-\omega_{\mathrm p}\simeq354.6,\quad
-\gamma_{\mathrm p}\simeq3268.5,\quad
-\gamma_{\mathrm{ph}}\simeq2.5\times10^{-5},\quad
-\omega_{\mathrm l}\simeq734.60,\quad
-\mathrm{RMSE}\simeq0.7444.
-\]
-
-因此，换用物理先验初值并没有把解带到另一个局部极小值；不同初值最终都进入同一个强阻尼区域。将 \(\gamma_{\mathrm{ph}}\) 固定为更常见的 \(2\)--\(7~\mathrm{cm^{-1}}\) 后，RMSE 约为 \(0.749\)--\(0.762\)，且 \(\gamma_{\mathrm p}\) 仍倾向于增大。
-
-### 4. 物理解释和限制
-
-在上述仅用于数值参照的质量参数下，\(\omega_{\mathrm p}\simeq425~\mathrm{cm^{-1}}\) 会对应约数 \(10^{18}~\mathrm{cm^{-3}}\) 的自由载流子浓度，\(\gamma_{\mathrm p}\simeq5000~\mathrm{cm^{-1}}\) 会对应约为 \(10~\mathrm{cm^2/(V\,s)}\) 的迁移率。但对于当前 p-GaN，这两个换算都不能直接作为定量结论：空穴有效质量、各向异性、补偿程度和激活率都会改变结果。特别是，不能把 Mg 掺杂浓度直接代入等离子频率公式。
-
-这里的 \(\gamma_{\mathrm p}\) 是载流子动量弛豫率，不是 Raman 峰的直接 FWHM。它很大时表示等离激元可能处于过阻尼状态，两个理想耦合分支可以不再清楚分辨。拟合中 \(\gamma_{\mathrm p}\) 撞到上边界，只能说明在当前窗口和模型中“继续增大阻尼仍有利于降低残差”；不能把 \(5000~\mathrm{cm^{-1}}\) 当作已经测定的材料常数。
-
-\(\gamma_{\mathrm{ph}}\) 接近 \(0.5~\mathrm{cm^{-1}}\) 也应谨慎解释。它的数值尺度只有约 1--2 个采样间隔；更重要的是，\(\gamma_{\mathrm{ph}}\) 不是在没有仪器函数时就能直接等同于观测 FWHM 的量。无边界结果进一步把它压到 \(2.5\times10^{-5}~\mathrm{cm^{-1}}\)，这已经是一个明确的可辨识性和模型完整性警告。
-
-### 4.1 为什么缺少仪器卷积可能不是小修正
-
-实际测量谱应写成
-
-\[
-I_{\mathrm{obs}}(\omega)=
-G_{\sigma_{\mathrm{inst}}}*I_{\mathrm{intrinsic}}(\omega)
-+B(\omega),
-\]
-
-其中 \(G_{\sigma_{\mathrm{inst}}}\) 是仪器线扩散函数，\(B\) 是局部背景。若本征峰宽远大于仪器宽度，忽略卷积通常只是近似；若本征峰宽与仪器宽度相当或更窄，卷积会改变峰高、峰宽和峰形。此时一个没有卷积的模型可能把 \(\gamma_{\mathrm{ph}}\) 压到接近零，再用强度和载流子阻尼参数去补偿仪器造成的展宽。
-
-当前数据的采样间隔约为 \(0.3006~\mathrm{cm^{-1}}\)，但采样间隔不等于仪器分辨率。若仪器分辨率是数个 \(\mathrm{cm^{-1}}\)，那么 \(0.5~\mathrm{cm^{-1}}\) 的本征阻尼已经不能凭这段数据可靠测量。因而本次拟合中的极小 \(\gamma_{\mathrm{ph}}\) 不能被当作实验发现的超窄声子线宽。
-
-此外，当前流程把 LOPC 窗口从其它峰的拟合区间中分离出来，未在同一个目标函数中同时加入局部背景和其它 Lorentzian 分量在该窗口内的尾部。缺少卷积并不是唯一的误差来源；仪器响应、背景和峰尾部可能共同造成参数退化。
-
-### 5. 实施结论和下一步
-
-这次检验说明当前困难主要不是初值，而是最小 LOPC 模型与窗口内实际信号之间的结构不匹配。后续实施应按以下顺序进行：
-
-1. 在 Adam 和 LM 中共享同一组有限边界；
-2. 将 LOPC、局部背景以及其它峰在 LOPC 窗口内的尾部放入同一个联合模型；
-3. 对完整 LOPC 响应加入实测或独立标定的 Gaussian 仪器响应卷积；
-4. 用 Hall 测量或其它电学数据约束自由空穴浓度 \(p\) 和迁移率 \(\mu_h\)，再换算为 \(\omega_{\mathrm p}\) 和 \(\gamma_{\mathrm p}\)；
-5. 在参数撞边界时报告“模型/数据约束不足”，不要把边界值直接解释成材料常数。
-
-在完成局部背景和仪器卷积前，当前拟合可以支持“该窗口与掺杂 p-GaN 的 LOPC 线型相容”，但还不足以支持从单条光谱唯一反演自由空穴浓度、空穴迁移率或本征声子阻尼。
+基线算法只能估计预处理背景，不能替代电子连续态模型。仪器 Gaussian 展宽应对完整 LOPC 或 Fano 响应卷积，不能用基线或独立峰宽吸收真实的物理结构。Voigt 是参考模型，不应被当作 LOPC 或 Fano 的物理解释。
 
 ## 参考文献
 
@@ -867,98 +804,3 @@ G_{\sigma_{\mathrm{inst}}}*I_{\mathrm{intrinsic}}(\omega)
 7. L. Shi, F. A. Ponce, and J. Menéndez, “Raman line shape of the A1 longitudinal optical phonon in GaN,” *Applied Physics Letters* **84**, 3471–3473 (2004). [DOI: 10.1063/1.1737792](https://doi.org/10.1063/1.1737792)
 8. M. J. Matthews, J. W. P. Hsu, S. Gu, and T. F. Kuech, “Carrier density imaging of lateral epitaxially overgrown GaN using scanning confocal Raman microscopy,” *Applied Physics Letters* **79**, 3086–3088 (2001). [DOI: 10.1063/1.1415421](https://doi.org/10.1063/1.1415421)
 9. U. Fano, “Effects of Configuration Interaction on Intensities and Phase Shifts,” *Physical Review* **124**, 1866–1878 (1961). [DOI: 10.1103/PhysRev.124.1866](https://doi.org/10.1103/PhysRev.124.1866)
-
-## 附录 B：供物理学教授讨论的 p-GaN \(A_1(\mathrm{LO})\) 线形简报
-
-### B.1 问题和最小模型
-
-样品按 p-GaN 处理，目标谱带已经确定为掺杂 GaN 的 \(A_1(\mathrm{LO})\) 峰。这里希望判断：该峰是否可以用 LO 声子与自由空穴等离激元耦合（LOPC）解释，以及 Raman 线形是否能够给出自由空穴浓度或输运阻尼的可靠信息。
-
-当前使用的最小模型先写成复介电函数
-
-\[
-\epsilon(\omega)=\epsilon_\infty
-\left[
-1+
-\frac{\omega_{\mathrm L}^{2}-\omega_{\mathrm T}^{2}}
-{\omega_{\mathrm T}^{2}-\omega^{2}-i\omega\gamma_{\mathrm{ph}}}
--
-\frac{\omega_{\mathrm p}^{2}}
-{\omega(\omega+i\gamma_{\mathrm p})}
-\right],
-\]
-
-并用介电损耗函数表示 Raman 响应：
-
-\[
-I_{\mathrm{min}}(\omega)=
-I_0\,\operatorname{Im}\left[-\frac{1}{\epsilon(\omega)}\right].
-\]
-
-这里的 \(\omega=2\pi c\widetilde\nu\)，\(\widetilde\nu\) 是 Raman 位移。下文的数值统一写成等效的 \(\mathrm{cm^{-1}}\) 频移，实际计算时必须保持角频率与阻尼使用同一单位。这个表达式是最小响应模型，尚未包含 Faust--Henry 散射因子、Fano 连续态、局部背景或仪器线形卷积。
-
-### B.2 参数的物理含义
-
-| 符号 | 物理含义 |
-|---|---|
-| \(I_0\) | 总 Raman 强度尺度，包含散射几何和其它整体强度因素 |
-| \(\omega_{\mathrm L}\) | 无自由载流子时的纵向光学声子频率；在模型中是 LO 声子的参考频率 |
-| \(\omega_{\mathrm T}\) | 横向光学声子频率，本次计算固定为约 \(533~\mathrm{cm^{-1}}\) |
-| \(\omega_{\mathrm p}\) | 屏蔽等离子频率；对 p-GaN 由自由空穴浓度和空穴有效质量决定 |
-| \(\gamma_{\mathrm p}\) | 自由空穴动量弛豫率，不是 Raman 峰的直接 FWHM；越大表示等离激元阻尼越强 |
-| \(\gamma_{\mathrm{ph}}\) | LO 声子阻尼参数，描述本征声子响应的耗散 |
-| \(\epsilon_\infty\) | 高频介电常数，本次计算固定为约 9.5 |
-
-对于 p-GaN，若采用 SI 定义，相关数量级关系为
-
-\[
-\omega_{\mathrm p}^{2}
-\simeq
-\frac{p e^2}{\epsilon_0\epsilon_\infty m_h^*},
-\qquad
-\gamma_{\mathrm p}
-\simeq
-\frac{e}{m_h^*\mu_h},
-\]
-
-其中 \(p\) 是自由空穴浓度，\(m_h^*\) 是相应方向的空穴有效质量，\(\mu_h\) 是空穴迁移率。Mg 掺杂浓度不能直接代替 \(p\)，因为补偿和激活率会使二者不同。p-GaN 的空穴有效质量还可能具有各向异性，因此不能无条件套用电子型 GaN 的参数。
-
-### B.3 当前数据和现象
-
-使用校正光谱中 \((x=0,y=0)\) 的代表性单点，在 \(720\)--\(750~\mathrm{cm^{-1}}\) 范围内观察到峰最大值约为 \(735.07~\mathrm{cm^{-1}}\)。本次计算固定 \(\omega_{\mathrm T}=533~\mathrm{cm^{-1}}\) 和 \(\epsilon_\infty=9.5\)。
-
-从几组不同载流子数量级的初始估计出发，结果都回到相近的参数区域：
-
-\[
-\omega_{\mathrm l}\approx735.3~\mathrm{cm^{-1}},
-\qquad
-\omega_{\mathrm p}\approx425~\mathrm{cm^{-1}},
-\]
-
-同时，\(\gamma_{\mathrm p}\) 倾向于继续增大，\(\gamma_{\mathrm{ph}}\) 倾向于继续减小。将这些参数完全交给当前最小模型时，曾得到
-
-\[
-\gamma_{\mathrm p}\approx3268~\mathrm{cm^{-1}},
-\qquad
-\gamma_{\mathrm{ph}}\approx2.5\times10^{-5}~\mathrm{cm^{-1}}.
-\]
-
-这说明当前谱线对 \(\gamma_{\mathrm p}\) 的上限和 \(\gamma_{\mathrm{ph}}\) 的下限都缺少足够约束；不同先验数量级的试算也没有把结果带到明显不同的稳定区域。
-
-### B.4 目前可以怎样解释
-
-1. **峰位方面**：\(\omega_{\mathrm l}\) 位于约 \(735~\mathrm{cm^{-1}}\)，与 p-GaN 中 \(A_1(\mathrm{LO})\) 候选峰的数量级一致。
-2. **等离子频率方面**：\(\omega_{\mathrm p}\) 的数值只有在给定空穴有效质量、自由空穴浓度和介电常数定义后才可换算为载流子信息。当前使用的电子型质量只是数值参照，不能当作 p-GaN 的真实物理先验。
-3. **载流子阻尼方面**：较大的 \(\gamma_{\mathrm p}\) 表示强阻尼或过阻尼等离激元，不能直接等同于一个同样宽的 Raman 峰。拟合倾向于增大它，说明当前谱窗对其上限缺乏约束。
-4. **声子阻尼方面**：\(\gamma_{\mathrm{ph}}\) 被压到极小值不能作为“本征声子极窄”的证据。当前模型没有显式包含仪器展宽；如果仪器分辨率与本征峰宽相当，模型可能用接近零的本征阻尼去代替实际仪器卷积。
-5. **可辨识性方面**：单条谱线、有限频率窗口和最小介电损耗模型不足以保证 \(p\)、\(\mu_h\)、\(\gamma_{\mathrm{ph}}\) 能被分别确定。当前结果更适合被称为“与强阻尼 LOPC 线形相容”，而不是对这些物理量的唯一测量。
-
-### B.5 希望请教的问题
-
-1. 对该 p-GaN 样品，合理的空穴有效质量张量、自由空穴浓度和迁移率范围应如何取？是否有 Hall 或其它电学数据可以作为约束？
-2. 上式中的 \(\omega_{\mathrm p}\) 应采用屏蔽等离子频率，还是应改用未除以 \(\epsilon_\infty\) 的裸等离子频率？
-3. 在约 \(735~\mathrm{cm^{-1}}\) 处，实验系统的实际仪器线形和分辨率是多少？是否有标准样品或窄参考峰可用于标定？
-4. 对 p-GaN 的 \(A_1(\mathrm{LO})\)，最小的 \(\operatorname{Im}[-1/\epsilon]\) 响应是否足够，还是应包含 Faust--Henry 因子、Fano 连续态、角向色散或深度平均？
-5. 仅凭当前线形，怎样区分 LOPC、Fano 干涉、声子自能和仪器/空间平均造成的表观展宽或不对称？
-
-这份简报的目的不是把当前数值结果作为最终材料参数，而是请教授判断：p-GaN 的物理先验和完整 Raman 响应模型应如何建立，哪些独立实验量最值得优先测量。

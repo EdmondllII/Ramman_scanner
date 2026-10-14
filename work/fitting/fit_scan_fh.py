@@ -26,6 +26,13 @@ LOPC_OPTIONS = {  # LOPC 初值和固定材料参数
     "vary_C": True,  # True 时 Adam 和 LM 均拟合 C，不设人为上下限
     "omega_t": 533.0,
     "epsilon_inf": 9.5,
+    "vary_amplitude": True,
+    "vary_omega_p": True,
+    "vary_gamma_p": True,
+    "vary_gamma_ph": True,
+    "vary_omega_l": True,  # 控制绝对 omega_l；Adam 和 LM 同时生效
+    "vary_omega_t": True,
+    "vary_epsilon_inf": True,
     "omega_p": 220.0,
     "gamma_p": 80.0,
     "gamma_ph": 7.0,
@@ -37,8 +44,8 @@ LOPC_OPTIONS = {  # LOPC 初值和固定材料参数
         "seed": 0,
     },
 }
-Y_START, Y_END = 0, 1  # y 范围；改为 3, 4 就只处理 y=3
-X_START, X_END = 0, 1  # x 范围；改为 5, 6 就只处理 x=5
+Y_START, Y_END = 0, None  # y 范围；改为 3, 4 就只处理 y=3
+X_START, X_END = 0, None  # x 范围；改为 5, 6 就只处理 x=5
 
 is_csv = INPUT_PATH.suffix.lower() == ".csv"
 if is_csv:

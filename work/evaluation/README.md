@@ -1,6 +1,6 @@
 # 拟合效果评估
 
-本目录只比较已有目标光谱与已有拟合（重建）光谱。输入为两条位移轴一致的两列 CSV，不读取拟合参数，不重建，不拟合，不绘图，不执行物理归因。当前目标谱为基线校正结果，应先完成拟合和重建。所有命令在项目根目录执行。
+本目录只比较已有目标光谱与已有拟合（重建）光谱。输入可以是两条位移轴一致的两列 CSV，或同一空间点的三维 TIFF 切片；不读取拟合参数，不重建，不拟合，不绘图，不执行物理归因。当前目标谱为基线校正结果，应先完成拟合和重建。所有命令在项目根目录执行。
 
 历史分析见 [拟合效果与 GaN 峰归因](../../docs/reports/fit_evaluation_and_GaN_attribution.md) 和 [拟合归因与振幅物理约束](../../docs/reports/拟合归因与振幅物理约束_2026-09-18.md)。历史报告中的分量诊断与旧指标不属于当前评估接口。
 
@@ -24,9 +24,9 @@ python work/evaluation/evaluate_current_fit_fh.py
 
 **用途与方法**：完整 A 项实验的评估入口，与普通入口使用同一比较函数，不读取 C 或计算 Faust–Henry 因子。
 
-**输入、输出**：目标谱仍为 `corrected_x0_y0.csv`，拟合谱为 `work/reconstruction/output/reconstructed_fh.csv`。指标、报告和残差 CSV 写入 `work/evaluation/output/lopc_fh/`。
+**输入、输出**：读取三维 `corrected.tif` 和 `work/reconstruction/output/reconstructed_fh.tif`，按顶部 `X_COORDINATE/Y_COORDINATE` 取同一点。指标、报告和残差 CSV 写入 `work/evaluation/output/lopc_fh/`。
 
-**需要修改的配置**：顶部两条输入路径、输出目录、文件名标签与 `REGIONS`。先运行 `reconstruct_spectrum_fh.py`，确保重建数据是最新结果。
+**需要修改的配置**：顶部两条 TIFF 路径、`X_COORDINATE/Y_COORDINATE`、输出目录与 `REGIONS`。先运行 `reconstruct_spectrum_fh.py`，确保重建数据是最新结果。
 
 ## evaluate_current_fit_fh_convolved.py
 

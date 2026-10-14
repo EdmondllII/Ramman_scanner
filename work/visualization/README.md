@@ -22,9 +22,9 @@ python work/visualization/plot_spectra_comparison_fh.py
 
 **用途与方法**：绘制校正谱和完整 A 项的独立重建谱；先运行新拟合和新重建。
 
-**输入、输出**：读取 `corrected_x0_y0.csv` 和 `work/reconstruction/output/reconstructed_fh.csv`；输出 `work/visualization/output/comparison_fh.png`。
+**输入、输出**：读取三维 `corrected.tif` 和 `work/reconstruction/output/reconstructed_fh.tif`，按顶部 `X_COORDINATE/Y_COORDINATE` 取同一点；输出 `work/visualization/output/comparison_fh.png`。
 
-**需要修改的配置**：顶部 `INPUT_PATHS`、`OUTPUT_PATH`。输入应对应同一空间点；可以额外加入旧 `reconstructed.csv` 对照。
+**需要修改的配置**：顶部两个 TIFF 路径、`X_COORDINATE/Y_COORDINATE` 和 `OUTPUT_PATH`。两个 TIFF 必须来自同一位移轴和同一空间范围。
 
 ## plot_spectra_comparison_fh_convolved.py
 

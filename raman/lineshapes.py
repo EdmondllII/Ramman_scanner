@@ -2,6 +2,8 @@
 
 Full A term: trnit1999_195-220.pdf, printed p.197, equations (3.2)-(3.3).
 All frequency parameters use the same unit, cm^-1 in this project.
+Code names map to the model symbols as follows: omega_l=omega_L,
+omega_t=omega_T, gamma_p=gamma, and gamma_ph=Gamma.
 """
 
 import numpy as np

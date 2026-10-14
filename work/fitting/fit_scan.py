@@ -26,6 +26,13 @@ LOPC_OPTIONS = {  # LOPC 初值和固定材料参数
     "omega_p": 220.0,
     "gamma_p": 80.0,
     "gamma_ph": 7.0,
+    "vary_amplitude": True,
+    "vary_omega_p": True,
+    "vary_gamma_p": True,
+    "vary_gamma_ph": True,
+    "vary_omega_l": True,
+    "vary_omega_t": False,
+    "vary_epsilon_inf": False,
     "optimizer": "adam_then_lm",  # 先用 Adam 预优化，再用现有 LM 精修
     "adam_options": {  # Adam 只作为 LOPC 的初值搜索阶段
         "learning_rate": 0.02,

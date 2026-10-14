@@ -1,88 +1,70 @@
-"""根据独立完整 A 项参数表重建光谱，使用拟合得到的 C。"""
-
 from pathlib import Path
-import csv
-import sys
-
+import csv, json, sys
 import numpy as np
-
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import tifffile
+from raman.io import read_csv_spectrum, read_tiff
+from raman.reconstruction import reconstruct_lopc_fh, reconstruct_lorentzian
 
-from raman.io import read_csv_spectrum, read_tiff  # 可更换位移轴读取方式
-from raman.reconstruction import (
-    reconstruct_lopc_fh,
-    reconstruct_lorentzian,
-)
+PARAMETERS_PATH = Path("work/fitting/output/fit_parameters_lopc_fh.csv")
+SHIFT_SOURCE_PATH = Path("work/baseline/output/corrected.tif")
+OUTPUT_PATH = Path("work/reconstruction/output/reconstructed_fh.tif")
+Y_START, Y_END = 0, None
+X_START, X_END = 0, None
+PEAK_IDS = None
+READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}
+PARAMETER_MAPPING = {"x":"x","y":"y","peak_id":"peak_id","model":"model","center":"position","amplitude":"amplitude","sigma":"sigma","gamma":"gamma","omega_l":"omega_l","omega_p":"omega_p","gamma_p":"gamma_p","gamma_ph":"gamma_ph","omega_t":"omega_t","epsilon_inf":"epsilon_inf","C":"C"}
 
-PARAMETERS_PATH = Path("work/fitting/output/fit_parameters_lopc_fh.csv")  # LOPC 混合拟合参数表
-SHIFT_SOURCE_PATH = Path("work/baseline/output/corrected.tif")  # 提供 Raman 位移轴的校正 TIFF 或 CSV
-OUTPUT_PATH = Path("work/reconstruction/output/reconstructed_fh.csv")  # 重建光谱输出
-X_COORDINATE, Y_COORDINATE = 0, 0  # 要重建的空间点坐标
-PEAK_IDS = None  # 改成 {1, 3} 可只重建第 1、3 个峰
-READER_OPTIONS = {"raman_shift_start": 350.0, "raman_shift_end": 800.0}  # TIFF 位移范围
-
-PARAMETER_MAPPING = {  # 手动指定参数表中每一列的含义，可使用列名
-    "x": "x", "y": "y", "peak_id": "peak_id", "model": "model",  # 坐标、峰编号和模型
-    "center": "position", "amplitude": "amplitude", "sigma": "sigma",  # 模型参数
-    "gamma": "gamma",  # Voigt 的 Lorentzian 半高半宽，其他线型会忽略
-    "omega_l": "omega_l", "omega_p": "omega_p", "gamma_p": "gamma_p",
-    "gamma_ph": "gamma_ph", "omega_t": "omega_t", "epsilon_inf": "epsilon_inf", "C": "C",
-}
+def reconstruct_point(shifts, rows):
+    spectrum = np.zeros_like(shifts, dtype=float)
+    for row in rows:
+        if PEAK_IDS is not None and int(float(row[PARAMETER_MAPPING["peak_id"]])) not in PEAK_IDS:
+            continue
+        model_name = row.get(PARAMETER_MAPPING["model"], "").strip().lower()
+        if model_name == "lopc_fh":
+            spectrum += reconstruct_lopc_fh(shifts, amplitude=float(row["amplitude"]), omega_p=float(row["omega_p"]), gamma_p=float(row["gamma_p"]), gamma_ph=float(row["gamma_ph"]), omega_l=float(row["omega_l"]), omega_t=float(row["omega_t"]), epsilon_inf=float(row["epsilon_inf"]), C=float(row["C"]))
+        elif model_name == "lorentzian":
+            gamma_text = row.get(PARAMETER_MAPPING["gamma"], "")
+            gamma = None if gamma_text in {"", "nan", "NaN"} else float(gamma_text)
+            spectrum += reconstruct_lorentzian(shifts, center=float(row["position"]), amplitude=float(row["amplitude"]), sigma=float(row["sigma"]), gamma=gamma)
+        else:
+            raise ValueError(f"Unsupported model in full A-term table: {model_name}")
+    return spectrum
 
 if SHIFT_SOURCE_PATH.suffix.lower() in {".tif", ".tiff"}:
     data = read_tiff(SHIFT_SOURCE_PATH, **READER_OPTIONS)
-    shifts = data.spectral_axis
+    if data.kind != "cube" or data.spectral_axis is None:
+        raise ValueError("位移轴来源必须是三维 TIFF 光谱立方体")
+    shifts = np.asarray(data.spectral_axis, dtype=float)
+    cube_shape = np.asarray(data.intensity).shape
 else:
     shifts, _ = read_csv_spectrum(SHIFT_SOURCE_PATH)
-if shifts is None:
-    raise ValueError("无法读取 Raman 位移轴")
+    shifts = np.asarray(shifts, dtype=float)
+    cube_shape = (1, 1, shifts.size)
 
 with PARAMETERS_PATH.open(newline="", encoding="utf-8-sig") as stream:
-    rows = list(csv.DictReader(stream))  # 参数表需要有表头
-
-reconstructed = np.zeros_like(shifts, dtype=float)
-selected_count = 0
-for row in rows:  # 每一行对应一个峰
-    if not (np.isclose(float(row[PARAMETER_MAPPING["x"]]), X_COORDINATE)
-            and np.isclose(float(row[PARAMETER_MAPPING["y"]]), Y_COORDINATE)):
-        continue
-    peak_id = int(float(row[PARAMETER_MAPPING["peak_id"]]))
-    if PEAK_IDS is not None and peak_id not in PEAK_IDS:
-        continue
-    model_name = row.get(PARAMETER_MAPPING["model"], "").strip().lower()
-    if model_name == "lopc_fh":
-        reconstructed += reconstruct_lopc_fh(
-            shifts,
-            amplitude=float(row[PARAMETER_MAPPING["amplitude"]]),
-            omega_p=float(row[PARAMETER_MAPPING["omega_p"]]),
-            gamma_p=float(row[PARAMETER_MAPPING["gamma_p"]]),
-            gamma_ph=float(row[PARAMETER_MAPPING["gamma_ph"]]),
-            omega_l=float(row[PARAMETER_MAPPING["omega_l"]]),
-            omega_t=float(row[PARAMETER_MAPPING["omega_t"]]),
-            epsilon_inf=float(row[PARAMETER_MAPPING["epsilon_inf"]]),
-            C=float(row[PARAMETER_MAPPING["C"]]),
-        )
-    elif model_name == "lorentzian":
-        gamma_text = row.get(PARAMETER_MAPPING["gamma"], "")
-        gamma = None if gamma_text in {"", "nan", "NaN"} else float(gamma_text)
-        reconstructed += reconstruct_lorentzian(
-            shifts,
-            center=float(row[PARAMETER_MAPPING["center"]]),
-            amplitude=float(row[PARAMETER_MAPPING["amplitude"]]),
-            sigma=float(row[PARAMETER_MAPPING["sigma"]]),
-            gamma=gamma,
-        )
-    else:
-        raise ValueError(f"Unsupported model in full A-term table: {model_name}")
-    selected_count += 1
-
+    rows = list(csv.DictReader(stream))
+if not rows:
+    raise ValueError("参数表为空")
+ny, nx, _ = cube_shape
+y_stop = ny if Y_END is None else min(Y_END, ny)
+x_stop = nx if X_END is None else min(X_END, nx)
+if not (0 <= Y_START <= y_stop and 0 <= X_START <= x_stop):
+    raise ValueError("重建范围超出输入立方体")
+grouped = {}
+for row in rows:
+    x, y = int(float(row["x"])), int(float(row["y"]))
+    if Y_START <= y < y_stop and X_START <= x < x_stop:
+        grouped.setdefault((y, x), []).append(row)
+reconstructed = np.full((ny, nx, shifts.size), np.nan, dtype=np.float32)
+selected_count = point_count = 0
+for (y, x), point_rows in grouped.items():
+    reconstructed[y, x] = reconstruct_point(shifts, point_rows).astype(np.float32)
+    selected_count += len(point_rows)
+    point_count += 1
 OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-np.savetxt(
-    OUTPUT_PATH,
-    np.column_stack((shifts, reconstructed)),
-    delimiter=",",
-    header="raman_shift,intensity",
-    comments="",
-)
-print(f"已重建 {selected_count} 个峰：{OUTPUT_PATH}")
+tifffile.imwrite(OUTPUT_PATH, reconstructed)
+metadata = {"dimension_order":["y","x","raman_shift"],"shape":list(reconstructed.shape),"raman_shift_range":[float(shifts[0]),float(shifts[-1])],"processing_range":{"y":[Y_START,y_stop],"x":[X_START,x_stop]},"parameters_file":str(PARAMETERS_PATH),"shift_source":str(SHIFT_SOURCE_PATH),"peak_ids":None if PEAK_IDS is None else sorted(PEAK_IDS),"model":"lopc_fh + lorentzian","reconstructed_points":point_count,"selected_peaks":selected_count}
+OUTPUT_PATH.with_suffix(".json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+print(f"已重建 {selected_count} 个峰、{point_count} 个空间点：{OUTPUT_PATH}")

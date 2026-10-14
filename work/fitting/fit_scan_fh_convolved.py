@@ -26,17 +26,25 @@ LOPC_OPTIONS = {  # LOPC 初值、材料参数和仪器响应
     "vary_C": True,  # True 时 Adam 和 LM 均拟合 C，不设人为上下限
     "omega_t": 533.0,
     "epsilon_inf": 9.5,
+    "vary_amplitude": True,
+    "vary_omega_p": True,
+    "vary_gamma_p": True,
+    "vary_gamma_ph": True,
+    "vary_omega_l": True,
+    "vary_omega_t": True,
+    "vary_epsilon_inf": True,
     "omega_p": 220.0,
     "gamma_p": 80.0,
     "gamma_ph": 7.0,
-    "optimizer": "lm",  # 卷积模型直接使用 LM，Adam 预优化尚未接入卷积目标函数
-    "adam_options": {  # Adam 只作为 LOPC 的初值搜索阶段
+    "optimizer": "adam_then_lm",  # 先用卷积目标进行 Adam 预优化，再由 LM 精修
+    "adam_options": {
         "learning_rate": 0.02,
         "max_steps": 1000,
         "patience": 150,
         "seed": 0,
     },
-    "sigma_inst": 1.0,  # Gaussian 仪器响应的标准差，单位 cm^-1；先使用固定标定候选值
+    "sigma_inst": 1.0,  # Gaussian 仪器响应标准差的初值，单位 cm^-1；未标定时仅作有效展宽
+    "vary_sigma_inst": True,  # Adam、LM 均优化；False 时固定为 sigma_inst，恢复之前版本
 }
 Y_START, Y_END = 0, 1  # y 范围；改为 3, 4 就只处理 y=3
 X_START, X_END = 0, 1  # x 范围；改为 5, 6 就只处理 x=5

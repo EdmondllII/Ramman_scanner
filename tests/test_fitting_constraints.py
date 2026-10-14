@@ -78,6 +78,27 @@ class FittingConstraintsTests(unittest.TestCase):
                          **{name: result[name] for name in initial})
         np.testing.assert_allclose(predicted, y, rtol=1.e-6, atol=1.e-8)
 
+    def test_lopc_vary_flags_freeze_adam_and_lm_together(self):
+        x = np.linspace(720., 750., 121)
+        initial = dict(amplitude=10., omega_l=735., omega_p=220.,
+                       gamma_p=80., gamma_ph=7.)
+        y = lopc(x, omega_t=533., epsilon_inf=9.5, **initial)
+        result = fit(
+            x, y, centers=[735.], omega_t=533., omega_p=220.,
+            gamma_p=80., gamma_ph=7., optimizer="adam_then_lm",
+            adam_options={"max_steps": 5}, vary_amplitude=False,
+            vary_omega_p=False, vary_gamma_p=False, vary_gamma_ph=False,
+            vary_omega_l=False, vary_omega_t=False,
+            vary_epsilon_inf=False,
+        )
+        self.assertNotIn("error", result.adam_prefit)
+        for name in ("amplitude", "omega_p", "gamma_p", "gamma_ph",
+                     "omega_l", "omega_t", "epsilon_inf"):
+            self.assertFalse(result.params[name].vary)
+            self.assertAlmostEqual(
+                result.params[name].value, result.adam_prefit[name], places=12
+            )
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -20,11 +20,11 @@ python work/reconstruction/reconstruct_spectrum.py
 python work/reconstruction/reconstruct_spectrum_fh.py
 ```
 
-**用途与模型**：独立完整 A 项重建。`lopc_fh` 行使用拟合得到的 C 和 `A_FH * Im[-1/ε]`，Lorentzian 行按原线型重建；其他模型标记会报错，避免误用旧 LOPC 表。
+**用途与模型**：独立完整 A 项批量重建。按参数表中的 `(x,y)` 分组，对每个空间点将 `lopc_fh` 和 Lorentzian 峰相加；本脚本只调用重建函数，不拟合、不寻峰、不评估。
 
-**输入、输出**：读取 `work/fitting/output/fit_parameters_lopc_fh.csv`，共用校正谱的位移轴；输出 `work/reconstruction/output/reconstructed_fh.csv`。
+**输入、输出**：读取 `work/fitting/output/fit_parameters_lopc_fh.csv` 和校正 TIFF 的位移轴；输出三维 `work/reconstruction/output/reconstructed_fh.tif` 及 `reconstructed_fh.json`，维度顺序为 `(y,x,raman_shift)`。没有参数记录的空间点保持 `NaN`。
 
-**需要修改的配置**：顶部路径、坐标、`PEAK_IDS`、位移轴读取配置与列名映射。C 必须来自新参数表，不能替换成初值或文献数值。
+**需要修改的配置**：顶部路径、`Y_START/Y_END`、`X_START/X_END`、`PEAK_IDS`、位移轴读取配置与列名映射。C 必须来自新参数表，不能替换成初值或文献数值。
 
 ## reconstruct_spectrum_fh_convolved.py
 
@@ -32,7 +32,7 @@ python work/reconstruction/reconstruct_spectrum_fh.py
 python work/reconstruction/reconstruct_spectrum_fh_convolved.py
 ```
 
-**用途与模型**：独立重建 Gaussian 仪器卷积完整 A 项。`lopc_fh_convolved` 行使用参数表中的 C 和固定 `sigma_inst`，Lorentzian 行保持原线型。
+**用途与模型**：独立重建 Gaussian 仪器卷积完整 A 项。`lopc_fh_convolved` 行使用参数表中的 C 和 `sigma_inst`（固定值或拟合结果），Lorentzian 行保持原线型。
 
 **输入、输出**：读取 `work/fitting/output/fit_parameters_lopc_fh_convolved.csv` 和校正 TIFF 的位移轴；输出 `work/reconstruction/output/reconstructed_fh_convolved.csv`。
 

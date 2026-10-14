@@ -25,6 +25,23 @@ def evaluate_files(target_path, fitted_path, output_dir, stem=None, *, regions=N
         raise ValueError("目标光谱和拟合光谱必须使用相同的 Raman 位移轴")
     finite = np.isfinite(target_x) & np.isfinite(target_y) & np.isfinite(fitted_y)
     shifts, target, fitted = target_x[finite], target_y[finite], fitted_y[finite]
+    return evaluate_arrays(
+        shifts, target, fitted, output_dir, stem,
+        regions=regions, metrics_path=metrics_path,
+        input_labels={"target": str(target_path), "fitted": str(fitted_path)},
+    )
+
+
+def evaluate_arrays(shifts, target, fitted, output_dir, stem=None, *, regions=None,
+                    metrics_path=None, input_labels=None):
+    """比较两条已读取的光谱；不读取参数、不拟合、不重建。"""
+    shifts = np.asarray(shifts, dtype=float)
+    target = np.asarray(target, dtype=float)
+    fitted = np.asarray(fitted, dtype=float)
+    if shifts.shape != target.shape or shifts.shape != fitted.shape:
+        raise ValueError("目标光谱和拟合光谱的形状必须一致")
+    finite = np.isfinite(shifts) & np.isfinite(target) & np.isfinite(fitted)
+    shifts, target, fitted = shifts[finite], target[finite], fitted[finite]
     metrics = {"full_spectrum": spectrum_metrics(shifts, target, fitted)}
     for name, (low, high) in (regions or {}).items():
         mask = (shifts >= low) & (shifts <= high)
@@ -39,13 +56,15 @@ def evaluate_files(target_path, fitted_path, output_dir, stem=None, *, regions=N
     residual_path = output_dir / f"fit_spectrum{suffix}.csv"
     report_path = output_dir / f"fit_report{suffix}.txt"
     payload = {
-        "inputs": {"target": str(target_path), "fitted": str(fitted_path), "regions_cm-1": regions or {}},
+        "inputs": {**(input_labels or {}), "regions_cm-1": regions or {}},
         "metrics": metrics,
     }
     metrics_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     np.savetxt(residual_path, np.column_stack((shifts, target, fitted, target - fitted)),
                delimiter=",", header="raman_shift,target,fitted,residual", comments="")
-    report = [f"target: {target_path}", f"fitted: {fitted_path}"]
+    labels = input_labels or {}
+    report = [f"target: {labels.get('target', 'array')}",
+              f"fitted: {labels.get('fitted', 'array')}"]
     for name, block in metrics.items():
         report.append(f"{name}: RMSE={block['rmse']}, R-squared={block['rsquared']}")
     report_path.write_text("\n".join(report) + "\n", encoding="utf-8")
